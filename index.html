@@ -17,11 +17,11 @@
         .login-box button { width: 100%; padding: 14px; background: #248bcf; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .login-box button:hover { background: #1c72ab; }
         
-        /* Скрытый инпут для фото */
+        /* Кнопка выбора фото */
         .file-input-label { display: inline-block; padding: 10px 15px; background: #f0f3f6; border-radius: 8px; cursor: pointer; font-size: 14px; color: #555; margin-bottom: 15px; font-weight: 500; }
         .file-input-label:hover { background: #e4e8ed; }
         #avatar-file, #modal-avatar-file { display: none; }
-        .preview-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 2px solid #248bcf; display: none; }
+        .preview-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px auto; border: 2px solid #248bcf; display: none; }
 
         /* Боковое меню */
         #sidebar { width: 350px; background: #fff; border-right: 1px solid #e6ebee; display: flex; flex-direction: column; height: 100%; z-index: 10; transition: transform 0.3s cubic-bezier(0.1, 0.8, 0.2, 1); }
@@ -57,7 +57,7 @@
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
         
         /* Разделитель дат */
-        .date-separator { align-self: center; background: rgba(122, 139, 153, 0.2); color: #fff; font-size: 13px; font-weight: 500; padding: 4px 12px; border-radius: 12px; margin: 15px 0; text-shadow: 0 1px 0 rgba(0,0,0,0.1); }
+        .date-separator { align-self: center; background: rgba(122, 139, 153, 0.4); color: #fff; font-size: 13px; font-weight: 500; padding: 4px 12px; border-radius: 12px; margin: 15px 0; }
 
         /* Пузыри сообщений */
         .msg-wrapper { display: flex; margin-bottom: 8px; flex-direction: column; max-width: 75%; position: relative; }
@@ -95,7 +95,7 @@
     <div class="login-box">
         <h2>Создать профиль</h2>
         <img id="login-preview" class="preview-avatar">
-        <label class="file-input-label" id="file-label">Выбрать фото из галереи
+        <label class="file-input-label">Выбрать фото из галереи
             <input type="file" id="avatar-file" accept="image/*" onchange="processAvatar(event, 'login-preview')">
         </label>
         <input type="text" id="nickname-input" placeholder="Ваш никнейм">
@@ -106,7 +106,7 @@
 <div id="profile-modal" onclick="toggleProfileModal(false)">
     <div class="login-box" onclick="event.stopPropagation()">
         <h2>Редактировать профиль</h2>
-        <img id="modal-preview" class="preview-avatar" style="display:block; margin: 0 auto 10px auto;">
+        <img id="modal-preview" class="preview-avatar" style="display:block;">
         <label class="file-input-label">Обновить фото профиля
             <input type="file" id="modal-avatar-file" accept="image/*" onchange="processAvatar(event, 'modal-preview')">
         </label>
@@ -152,6 +152,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
+    // ВАША КОНФИГУРАЦИЯ FIREBASE
     const firebaseConfig = {
         apiKey: "AIzaSyCTDqpLLsbolvQlxGEqUZLR561Irsq57Po",
         authDomain: "messenger-2e22b.firebaseapp.com",
@@ -173,7 +174,7 @@
     let messagesListener = null; 
     let compressedAvatarBase64 = "";
 
-    // Обработка и сжатие фото из галереи через Canvas (чтобы не перегружать БД)
+    // ИСПРАВЛЕННЫЙ метод обработки и сжатия фото из галереи
     window.processAvatar = (event, previewId) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -183,7 +184,7 @@
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 128; // Размер миниатюры Telegram
+                const MAX_WIDTH = 128; 
                 const MAX_HEIGHT = 128;
                 let width = img.width;
                 let height = img.height;
@@ -195,10 +196,12 @@
                 }
                 canvas.width = width;
                 canvas.height = height;
-                const ctx = canvas.getContext('2document.getElementById');
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                 
-                compressedAvatarBase64 = canvas.toDataURL('image/jpeg', 0.7); // Сжатие 70%
+                // Исправлено: режим '2d' без лишнего мусора
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                compressedAvatarBase64 = canvas.toDataURL('image/jpeg', 0.7); 
                 const preview = document.getElementById(previewId);
                 preview.src = compressedAvatarBase64;
                 preview.style.display = 'block';
@@ -221,10 +224,10 @@
         initApp();
     };
 
-    // Настройки профиля
     window.openProfileSettings = () => {
         document.getElementById('modal-nickname-input').value = currentUser;
         document.getElementById('modal-preview').src = currentAvatar;
+        document.getElementById('modal-preview').style.display = 'block';
         compressedAvatarBase64 = currentAvatar;
         toggleProfileModal(true);
     };
@@ -237,18 +240,16 @@
         let newNick = document.getElementById('modal-nickname-input').value.trim().replace(/[.#$\[\]]/g, '');
         if (!newNick) return alert("Никнейм не может быть пустым!");
 
-        // Если сменили ник - удаляем старый статус онлайн
         if(newNick !== currentUser) {
             set(ref(db, `users/${currentUser}`), null);
         }
 
         currentUser = newNick;
-        currentAvatar = compressedAvatarBase64;
+        currentAvatar = compressedAvatarBase64 || currentAvatar;
 
         localStorage.setItem('chat_nickname', currentUser);
         localStorage.setItem('chat_avatar', currentAvatar);
 
-        // Обновляем на сервере
         set(ref(db, `users/${currentUser}`), { nickname: currentUser, avatar: currentAvatar, online: true });
         
         initApp();
@@ -288,7 +289,6 @@
         loadMessages();
     };
 
-    // Красивый формат даты (как в ТГ)
     function formatMessageDate(timestamp) {
         const date = new Date(timestamp);
         const today = new Date();
@@ -316,12 +316,10 @@
                 const data = child.val();
                 const isMe = data.sender === currentUser;
                 
-                // Проставляем "Прочитано", если сообщение открыл получатель (не в общем чате)
                 if (!isMe && !data.read && currentChatMode !== 'global') {
                     update(ref(db, `messages/${currentChatMode}/${msgId}`), { read: true });
                 }
 
-                // Логика разделителя дат
                 const msgDateStr = formatMessageDate(data.timestamp);
                 if (msgDateStr !== lastDateStr) {
                     msgsContainer.innerHTML += `<div class="date-separator">${msgDateStr}</div>`;
@@ -331,7 +329,6 @@
                 const timeStr = new Date(data.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                 const alignmentClass = isMe ? 'me' : 'them';
                 
-                // Галочки для ЛС
                 let ticks = '';
                 if (currentChatMode !== 'global' && isMe) {
                     ticks = data.read ? '✓✓' : '✓';
@@ -369,7 +366,6 @@
             }
         });
 
-        // Контакты
         onValue(ref(db, 'users'), (snapshot) => {
             const listContainer = document.getElementById('user-list');
             let html = '';
@@ -384,4 +380,16 @@
                             <div class="status-dot ${statusClass}"></div>
                             <div class="contact-info">
                                 <div class="contact-name">${user.nickname}</div>
-                                <div class="status-text ${statusClass}">${statusT
+                                <div class="status-text ${statusClass}">${statusText}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            listContainer.innerHTML = html;
+        });
+
+        let isFirstLoad = true;
+        let lastMessageCount = 0;
+        onValue(ref(db, 'messages/global'), (snapshot) => {
+        
