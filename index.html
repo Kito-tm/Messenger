@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TG Crypto Ultimate</title>
     
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TG Crypto">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=TG&background=248bcf&color=fff&size=180">
+    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         body { display: flex; height: 100dvh; background: #eef2f5; overflow: hidden; }
@@ -148,7 +154,6 @@
         <button id="send-btn">▶</button>
     </div>
 </div>
-
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
@@ -170,16 +175,16 @@
         messagingSenderId: "568767713950",
         appId: "1:568767713950:web:36d347ceaf13a5d865e18f"
     };
-const db = getDatabase(initializeApp(firebaseConfig));
+
+    const db = getDatabase(initializeApp(firebaseConfig));
     let user = null, displayName = null, avatar = null, mode = 'sidebar', lastList = null;
-    let activeChat = null; // Трекер текущего открытого чата
-    let isWindowFocused = true; // Отслеживание блокировки телефона / фокуса вкладки
+    let activeChat = null; 
+    let isWindowFocused = true; 
     let unreadUnsubs = [], typingTimeout = null, lastTap = 0, hTypingUnsub = null, hOnlineUnsub = null, toastTimeout = null;
 
     const $ = id => document.getElementById(id);
     const safeListen = (id, event, fn) => { const el = $(id); if (el) el.addEventListener(event, fn); };
 
-    // Следим за фокусом
     window.addEventListener('focus', () => { 
         isWindowFocused = true; 
         if (activeChat && activeChat !== 'global' && mode !== 'sidebar') {
@@ -192,7 +197,7 @@ const db = getDatabase(initializeApp(firebaseConfig));
     });
     window.addEventListener('blur', () => { isWindowFocused = false; });
 
-    // Функция запроса прав на пуши (вызывается строго по клику на кнопку)
+    // УМНЫЙ ЗАПРОС ПРАВ ДЛЯ ANDROID И С ПОДСКАЗКОЙ ДЛЯ IPHONE
     const requestNotificationPermission = () => {
         if ('Notification' in window && window.Notification) {
             window.Notification.requestPermission().then(permission => {
@@ -200,16 +205,16 @@ const db = getDatabase(initializeApp(firebaseConfig));
                     alert('Отлично! Системные уведомления успешно включены.');
                     if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
                 } else if (permission === 'denied') {
-                    alert('Доступ заблокирован в браузере. Сбросьте разрешения сайта (значок замочка у адреса сайта) и включите их заново.');
+                    alert('Доступ заблокирован. Сбросьте разрешения сайта (значок замочка у адреса страницы) или проверьте настройки уведомлений телефона.');
                 }
             });
         } else {
-            alert('Push-уведомления не поддерживаются вашей ОС или браузером.');
+            // Если мы зашли со стандартного Safari на iPhone (не через домашний экран)
+            alert('На iPhone пуш-уведомления работают только через домашний экран!\n\nИнструкция:\n1. Нажмите внизу кнопку «Поделиться» (квадрат со стрелкой вверх).\n2. Прокрутите список вниз и выберите «На экран "Домой"».\n3. Запустите появившееся приложение на рабочем столе и активируйте пуши там!');
         }
     };
     window.requestNotificationPermission = requestNotificationPermission;
 
-    // Регистрация Сервис-Воркера для мобильных системных Push
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
             .then(() => console.log('Service Worker успешно подключен.'))
@@ -246,7 +251,6 @@ const db = getDatabase(initializeApp(firebaseConfig));
         } catch (e) {}
     };
 
-    // Надежная отправка системных уведомлений на Android / iOS через Service Worker
     const sendSystemPush = (title, body, icon) => {
         try {
             if ('serviceWorker' in navigator) {
@@ -256,7 +260,7 @@ const db = getDatabase(initializeApp(firebaseConfig));
                         icon: icon || `https://ui-avatars.com/api/?name=${title}&background=random`,
                         badge: icon || '',
                         vibrate: [150, 50, 150],
-                        tag: title, // Схлопывает пуши от одного и того же человека в одну ветку
+                        tag: title, 
                         renotify: true
                     });
                 }).catch(() => fallbackNotification(title, body, icon));
@@ -271,8 +275,7 @@ const db = getDatabase(initializeApp(firebaseConfig));
             new window.Notification(title, { body: body, icon: icon || '' });
         }
     };
-
-    const displayToastNotification = (title, text, av, targetNick, targetName) => {
+const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
         if ('vibrate' in navigator) navigator.vibrate([150]);
         if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
@@ -331,7 +334,8 @@ const db = getDatabase(initializeApp(firebaseConfig));
     };
 
     const logout = () => { if(user) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
-const saveProfile = async () => {
+
+    const saveProfile = async () => {
         let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
         if (!newUN.startsWith('@')) newUN = '@' + newUN; newUN = newUN.replace(/[.#$\[\]]/g, '');
@@ -393,7 +397,6 @@ const saveProfile = async () => {
             snap.forEach((c) => {
                 const d = c.val(); const isMe = d.sender === user;
                 
-                // Читаем сообщение ТОЛЬКО если чат РЕАЛЬНО открыт, а вкладка в фокусе
                 if (!isMe && !d.read && mode !== 'global' && activeChat === targetUser && isWindowFocused) {
                     update(ref(db, `messages/${mode}/${c.key}`), { read: true });
                 }
@@ -470,7 +473,6 @@ const saveProfile = async () => {
                             const bEl = $(`bad-${u.username.replace('@','')}`);
                             if(bEl) { if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; } }
                             
-                            // Уведомляем, если чат неактивен ИЛИ вкладка/экран заблокированы
                             if(!firstLoad && lastMsg && !lastMsg.read && (activeChat !== u.username || !isWindowFocused)) { 
                                 processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar, u.username, dName);
                             }
@@ -511,7 +513,6 @@ const saveProfile = async () => {
     safeListen('modal-cancel-btn', 'click', () => { if ($('prof-modal')) $('prof-modal').style.display = 'none'; });
     safeListen('global-chat-tab', 'click', () => openChat('global'));
     
-    // Кнопка назад полностью сбрасывает контекст чата
     safeListen('back-btn', 'click', () => { 
         if ($('sidebar')) $('sidebar').classList.remove('hidden'); 
         activeChat = null; mode = 'sidebar';
