@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-    <title>TG Pro Lite</title>
+    <title>TG Crypto Lite</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { display: flex; height: 100vh; background: #eef2f5; overflow: hidden; }
         
-        /* Экраны-модалки поверх всего */
+        /* Модальные окна */
         #login-screen, #prof-modal { position: fixed; inset: 0; background: #f4f6f9; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         #prof-modal { display: none; background: rgba(0,0,0,0.5); }
         .box { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 90%; max-width: 340px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
-        input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; outline: none; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; outline: none; }
+        .rem-cb { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; color: #555; cursor: pointer; }
+        .rem-cb input { width: auto; margin: 0; }
+        
         button { width: 100%; padding: 12px; background: #248bcf; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 5px; }
         .file-lbl { display: inline-block; padding: 10px; background: #f0f3f6; border-radius: 8px; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
         .preview-avatar { width: 75px; height: 75px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: none; border: 2px solid #248bcf; }
         
-        /* Интерфейс */
-        #sidebar { width: 320px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; height: 100%; }
-        .header { padding: 12px 15px; border-bottom: 1px solid #ddd; display: flex; align-items: center; cursor: pointer; }
+        /* Главный интерфейс */
+        #sidebar { width: 320px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .header { padding: 12px 15px; border-bottom: 1px solid #ddd; display: flex; align-items: center; cursor: pointer; background: #fff; }
         .my-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: #eee; margin-right: 10px; }
         
         #global-chat-tab { padding: 15px; background: #f9f9f9; border-bottom: 3px solid #f4f6f9; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; }
         #user-list { flex: 1; overflow-y: auto; }
         
-        /* Списки контактов */
+        /* Контакты */
         .contact { display: flex; align-items: center; padding: 12px; cursor: pointer; border-bottom: 1px solid #fafdff; position: relative; }
         .contact img { width: 44px; height: 44px; border-radius: 50%; margin-right: 12px; object-fit: cover; background: #eee; }
         .c-info { flex: 1; }
@@ -36,12 +39,12 @@
         .dot { width: 10px; height: 10px; border-radius: 50%; background: #bbb; position: absolute; left: 48px; top: 44px; border: 2px solid #fff; }
         .dot.on { background: #31b545; }
         
-        /* Чат зона */
+        /* Область чата */
         #chat-area { flex: 1; display: flex; flex-direction: column; background: #f4f6f9; height: 100%; }
         #chat-header { padding: 15px; background: #fff; border-bottom: 1px solid #ddd; font-weight: bold; display: flex; align-items: center; }
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: #f0f4f7; }
         
-        /* Сообщения */
+        /* Пузыри сообщений */
         .dt-sep { align-self: center; background: rgba(120,135,145,0.4); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 10px; margin: 10px 0; font-weight: 500; }
         .msg { padding: 6px 12px; border-radius: 14px; margin-bottom: 6px; max-width: 75%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .msg.me { align-self: flex-end; background: #eff7ff; border-bottom-right-radius: 4px; }
@@ -68,11 +71,13 @@
 
 <div id="login-screen">
     <div class="box">
-        <h2>Создать профиль</h2>
+        <h2 style="margin-bottom:10px;">Вход / Регистрация</h2>
         <img id="login-preview" class="preview-avatar">
-        <label class="file-lbl">Выбрать фото<input type="file" id="avatar-file" accept="image/*" style="display:none;"></label>
-        <input type="text" id="nickname-input" placeholder="Ваш никнейм">
-        <button id="login-submit-btn">Войти в мессенджер</button>
+        <label class="file-lbl">Выбрать фото (опционально)<input type="file" id="avatar-file" accept="image/*" style="display:none;"></label>
+        <input type="text" id="nickname-input" placeholder="@username">
+        <input type="password" id="password-input" placeholder="Пароль">
+        <label class="rem-cb"><input type="checkbox" id="remember-me"> Запомнить меня на устройстве</label>
+        <button id="login-submit-btn">Войти в аккаунт</button>
     </div>
 </div>
 
@@ -81,8 +86,8 @@
         <h2>Настройки профиля</h2>
         <img id="modal-preview" class="preview-avatar" style="display:block;">
         <label class="file-lbl">Изменить фото<input type="file" id="modal-avatar-file" accept="image/*" style="display:none;"></label>
-        <input type="text" id="modal-nickname-input" placeholder="Новый никнейм">
-        <button id="modal-save-btn">Сохранить</button>
+        <button id="modal-save-btn">Сохранить изменения</button>
+        <button id="modal-logout-btn" style="background:#e55050;">Выйти из аккаунта</button>
         <button id="modal-cancel-btn" style="background:#bbb;">Отмена</button>
     </div>
 </div>
@@ -107,13 +112,14 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, set, update, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
     window.addEventListener('error', (e) => alert("Система: " + e.message));
 
     const store = {
         set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) { window['m_'+k] = v; } },
-        get: (k) => { try { return localStorage.getItem(k) || window['m_'+k]; } catch(e) { return window['m_'+k]; } }
+        get: (k) => { try { return localStorage.getItem(k) || window['m_'+k]; } catch(e) { return window['m_'+k]; } },
+        clear: () => { try { localStorage.clear(); } catch(e) {} }
     };
 
     const firebaseConfig = {
@@ -127,7 +133,7 @@
     };
 
     const db = getDatabase(initializeApp(firebaseConfig));
-    let user = store.get('c_nk'), avatar = store.get('c_av'), mode = 'global', lastList = null;
+    let user = null, avatar = null, mode = 'global', lastList = null;
 
     const $ = id => document.getElementById(id);
 
@@ -148,27 +154,40 @@
         r.readAsDataURL(f);
     };
 
-    const login = () => {
-        let n = $('nickname-input').value.trim().replace(/[.#$\[\]]/g, '');
-        if (!n) return alert("Введите ник!");
-        user = n; if (!avatar) avatar = `https://ui-avatars.com/api/?name=${n}&background=random`;
-        store.set('c_nk', user); store.set('c_av', avatar);
+    const login = async () => {
+        let n = $('nickname-input').value.trim();
+        let p = $('password-input').value.trim();
+        if (!n || !p) return alert("Заполните логин и пароль!");
+        
+        if (!n.startsWith('@')) n = '@' + n;
+        n = n.replace(/[.#$\[\]]/g, ''); // Очистка для Firebase
+
+        const snap = await get(ref(db, `users/${n}`));
+        if (snap.exists()) {
+            const uData = snap.val();
+            if (uData.password !== p) return alert("Неверный пароль для этого аккаунта!");
+            user = n; avatar = uData.avatar;
+        } else {
+            user = n; 
+            if (!avatar) avatar = `https://ui-avatars.com/api/?name=${n.replace('@','')}&background=random`;
+            await set(ref(db, `users/${user}`), { nickname: user, avatar: avatar, password: p, online: true });
+        }
+
+        if ($('remember-me').checked) {
+            store.set('c_nk', user);
+            store.set('c_pv', p);
+        }
         initApp();
     };
 
-    const openProfile = () => {
-        $('modal-nickname-input').value = user;
-        $('modal-preview').src = avatar;
-        $('prof-modal').style.display = 'flex';
+    const logout = () => {
+        store.clear();
+        location.reload();
     };
 
     const saveProfile = () => {
-        let n = $('modal-nickname-input').value.trim().replace(/[.#$\[\]]/g, '');
-        if (!n) return alert("Ник пуст!");
-        if (n !== user) set(ref(db, `users/${user}`), null);
-        user = n; store.set('c_nk', user); store.set('c_av', avatar);
-        set(ref(db, `users/${user}`), { nickname: user, avatar: avatar, online: true });
-        $('my-name').innerText = user; $('my-avatar').src = avatar;
+        update(ref(db, `users/${user}`), { avatar: avatar });
+        $('my-avatar').src = avatar;
         $('prof-modal').style.display = 'none';
     };
 
@@ -222,7 +241,7 @@
         $('my-name').innerText = user; $('my-avatar').src = avatar;
         
         const userRef = ref(db, `users/${user}`);
-        set(userRef, { nickname: user, avatar: avatar, online: true });
+        update(userRef, { online: true });
         onDisconnect(userRef).update({ online: false });
 
         onValue(ref(db, 'users'), (snap) => {
@@ -256,8 +275,12 @@
     $('avatar-file').addEventListener('change', (e) => processAv(e, 'login-preview'));
     $('modal-avatar-file').addEventListener('change', (e) => processAv(e, 'modal-preview'));
     $('login-submit-btn').addEventListener('click', login);
-    $('my-profile-trigger').addEventListener('click', openProfile);
+    $('my-profile-trigger').addEventListener('click', () => {
+        $('modal-preview').src = avatar;
+        $('prof-modal').style.display = 'flex';
+    });
     $('modal-save-btn').addEventListener('click', saveProfile);
+    $('modal-logout-btn').addEventListener('click', logout);
     $('modal-cancel-btn').addEventListener('click', () => $('prof-modal').style.display = 'none');
     $('global-chat-tab').addEventListener('click', () => openChat('global'));
     $('back-btn').addEventListener('click', () => $('sidebar').classList.remove('hidden'));
@@ -268,7 +291,18 @@
         if (card) openChat(card.getAttribute('data-nick'));
     });
 
-    if (user && avatar) initApp();
+    // Авто-вход, если активна опция "Запомнить меня"
+    (async () => {
+        const savedUser = store.get('c_nk');
+        const savedPass = store.get('c_pv');
+        if (savedUser && savedPass) {
+            const snap = await get(ref(db, `users/${savedUser}`));
+            if (snap.exists() && snap.val().password === savedPass) {
+                user = savedUser; avatar = snap.val().avatar;
+                initApp();
+            } else { store.clear(); }
+        }
+    })();
 </script>
 </body>
 </html>
