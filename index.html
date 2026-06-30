@@ -64,7 +64,6 @@
         #message-input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ddd; outline: none; font-size: 16px; }
         #send-btn { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; padding: 0; margin-top: 0; }
         
-        /* Стили всплывающего тост-уведомления сверху экрана */
         #toast-notification { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 360px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; align-items: center; z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; border-left: 4px solid #248bcf; }
         #toast-notification.show { top: calc(12px + env(safe-area-inset-top)); }
         #toast-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; background: #eee; }
@@ -83,6 +82,7 @@
     </style>
 </head>
 <body>
+
 <div id="toast-notification">
     <img id="toast-img" src="">
     <div id="toast-content">
@@ -110,6 +110,9 @@
         <label class="file-lbl">Изменить фото<input type="file" id="modal-avatar-file" accept="image/*" style="display:none;"></label>
         <input type="text" id="modal-display-name-input" placeholder="Отображаемое имя">
         <input type="text" id="modal-username-input" placeholder="@username">
+        
+        <button id="auth-notifications-btn" onclick="requestNotificationPermission()" style="background:#31b545; margin-bottom:10px;">🔔 Включить Push на телефоне</button>
+        
         <button id="modal-save-btn">Сохранить</button>
         <button id="modal-logout-btn" style="background:#e55050;">Выйти из аккаунта</button>
         <button id="modal-cancel-btn" style="background:#bbb;">Отмена</button>
@@ -150,7 +153,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-    // Логируем ошибки аккуратно, чтобы не вешать интерфейс
     window.addEventListener('error', (e) => console.log("Перехваченная ошибка: " + e.message));
 
     const store = {
@@ -168,19 +170,52 @@
         messagingSenderId: "568767713950",
         appId: "1:568767713950:web:36d347ceaf13a5d865e18f"
     };
-
-    const db = getDatabase(initializeApp(firebaseConfig));
-    let user = null, displayName = null, avatar = null, mode = 'global', lastList = null;
+const db = getDatabase(initializeApp(firebaseConfig));
+    let user = null, displayName = null, avatar = null, mode = 'sidebar', lastList = null;
+    let activeChat = null; // Трекер текущего открытого чата
+    let isWindowFocused = true; // Отслеживание блокировки телефона / фокуса вкладки
     let unreadUnsubs = [], typingTimeout = null, lastTap = 0, hTypingUnsub = null, hOnlineUnsub = null, toastTimeout = null;
 
     const $ = id => document.getElementById(id);
+    const safeListen = (id, event, fn) => { const el = $(id); if (el) el.addEventListener(event, fn); };
 
-    // Безопасный биндинг событий: если элемента нет в текущем HTML, скрипт не упадет!
-    const safeListen = (id, event, fn) => {
-        const el = $(id);
-        if (el) el.addEventListener(event, fn);
+    // Следим за фокусом
+    window.addEventListener('focus', () => { 
+        isWindowFocused = true; 
+        if (activeChat && activeChat !== 'global' && mode !== 'sidebar') {
+            get(ref(db, `messages/${mode}`)).then(snap => {
+                snap.forEach(c => {
+                    const d = c.val(); if (d.sender !== user && !d.read) update(ref(db, `messages/${mode}/${c.key}`), { read: true });
+                });
+            });
+        }
+    });
+    window.addEventListener('blur', () => { isWindowFocused = false; });
+
+    // Функция запроса прав на пуши (вызывается строго по клику на кнопку)
+    const requestNotificationPermission = () => {
+        if ('Notification' in window && window.Notification) {
+            window.Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    alert('Отлично! Системные уведомления успешно включены.');
+                    if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
+                } else if (permission === 'denied') {
+                    alert('Доступ заблокирован в браузере. Сбросьте разрешения сайта (значок замочка у адреса сайта) и включите их заново.');
+                }
+            });
+        } else {
+            alert('Push-уведомления не поддерживаются вашей ОС или браузером.');
+        }
     };
-// Функция отправки сообщений (Экспортируем в window ОЧЕНЬ РАНО, до инициализации)
+    window.requestNotificationPermission = requestNotificationPermission;
+
+    // Регистрация Сервис-Воркера для мобильных системных Push
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log('Service Worker успешно подключен.'))
+            .catch(err => console.log('Ошибка инициализации SW:', err));
+    }
+
     const send = () => {
         const txt = $('message-input') ? $('message-input').value.trim() : ''; 
         if (!txt) return;
@@ -190,26 +225,16 @@
     };
     window.send = send;
 
-    // Безопасный запрос стандартного разрешения пушей
-    try {
-        if (typeof window !== 'undefined' && 'Notification' in window && window.Notification && window.Notification.permission === 'default') {
-            window.Notification.requestPermission().catch(() => {});
-        }
-    } catch (e) {}
-
-    // Динамическая генерация аудио-сигнала (Chime) через Web Audio API (100% поддержка)
     const playChime = () => {
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return;
             const ctx = new AudioContext();
-            
             const osc1 = ctx.createOscillator(); const gain1 = ctx.createGain();
             osc1.type = 'sine'; osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
             gain1.gain.setValueAtTime(0.08, ctx.currentTime);
             gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
             osc1.connect(gain1); gain1.connect(ctx.destination);
             osc1.start(); osc1.stop(ctx.currentTime + 0.12);
-            
             setTimeout(() => {
                 const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
                 osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, ctx.currentTime);
@@ -221,29 +246,35 @@
         } catch (e) {}
     };
 
-    // Функция безопасной отправки системных Push-уведомлений
+    // Надежная отправка системных уведомлений на Android / iOS через Service Worker
     const sendSystemPush = (title, body, icon) => {
         try {
-            if (typeof window !== 'undefined' && 'Notification' in window && window.Notification && window.Notification.permission === 'granted') {
-                const n = new window.Notification(title, { body: body, icon: icon || '' });
-                n.onclick = () => { window.focus(); };
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, {
+                        body: body,
+                        icon: icon || `https://ui-avatars.com/api/?name=${title}&background=random`,
+                        badge: icon || '',
+                        vibrate: [150, 50, 150],
+                        tag: title, // Схлопывает пуши от одного и того же человека в одну ветку
+                        renotify: true
+                    });
+                }).catch(() => fallbackNotification(title, body, icon));
+            } else {
+                fallbackNotification(title, body, icon);
             }
-        } catch (e) {
-            try {
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(regs => {
-                        if (regs && regs.length > 0) regs[0].showNotification(title, { body: body, icon: icon || '' });
-                    }).catch(() => {});
-                }
-            } catch (err) {}
+        } catch (e) {}
+    };
+
+    const fallbackNotification = (title, body, icon) => {
+        if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
+            new window.Notification(title, { body: body, icon: icon || '' });
         }
     };
 
-    // Логика отображения всплывающего внутреннего смарт-баннера (Тоста)
     const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
         if ('vibrate' in navigator) navigator.vibrate([150]);
-
         if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
 
         $('toast-img').src = av || `https://ui-avatars.com/api/?name=${title}&background=random`;
@@ -261,7 +292,6 @@
         toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     };
 
-    // Комплексный триггер для обработки входящего сообщения вне текущего диалога
     const processIncomingNotification = (title, text, av, targetNick, targetName) => {
         sendSystemPush(title, text, av);
         displayToastNotification(title, text, av, targetNick, targetName);
@@ -301,8 +331,7 @@
     };
 
     const logout = () => { if(user) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
-
-    const saveProfile = async () => {
+const saveProfile = async () => {
         let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
         if (!newUN.startsWith('@')) newUN = '@' + newUN; newUN = newUN.replace(/[.#$\[\]]/g, '');
@@ -321,14 +350,15 @@
     };
 
     const openChat = (t, dName) => {
-        mode = t === 'global' ? 'global' : [user, t].sort().join('_');
+        if (t === 'global') { activeChat = 'global'; mode = 'global'; } else { activeChat = t; mode = [user, t].sort().join('_'); }
+        
         if ($('chat-title')) $('chat-title').innerText = t === 'global' ? 'Общий чат' : dName;
         if (t === 'global' && $('g-unread')) $('g-unread').style.display = 'none';
         if (window.innerWidth <= 768 && $('sidebar')) $('sidebar').classList.add('hidden');
 
         if (hTypingUnsub) hTypingUnsub(); if (hOnlineUnsub) hOnlineUnsub();
         const subEl = $('chat-subtitle');
-        if (!subEl) { loadMsgs(); return; }
+        if (!subEl) { loadMsgs(t); return; }
 
         if (t === 'global') {
             subEl.innerText = 'публичный чат'; subEl.style.color = '#888'; subEl.className = '';
@@ -353,15 +383,20 @@
                 }
             });
         }
-        loadMsgs();
+        loadMsgs(t);
     };
-const loadMsgs = () => {
+
+    const loadMsgs = (targetUser) => {
         if (lastList) lastList();
         lastList = onValue(ref(db, `messages/${mode}`), (snap) => {
             let h = '', lastDt = '';
             snap.forEach((c) => {
                 const d = c.val(); const isMe = d.sender === user;
-                if (!isMe && !d.read && mode !== 'global') update(ref(db, `messages/${mode}/${c.key}`), { read: true });
+                
+                // Читаем сообщение ТОЛЬКО если чат РЕАЛЬНО открыт, а вкладка в фокусе
+                if (!isMe && !d.read && mode !== 'global' && activeChat === targetUser && isWindowFocused) {
+                    update(ref(db, `messages/${mode}/${c.key}`), { read: true });
+                }
                 
                 const currentDt = (d.timestamp) ? new Date(d.timestamp).toDateString() === new Date().toDateString() ? 'Сегодня' : new Date(d.timestamp).toLocaleDateString('ru', { day: 'numeric', month: 'short' }) : 'Сегодня';
                 if (currentDt !== lastDt) { h += `<div class="dt-sep">${currentDt}</div>`; lastDt = currentDt; }
@@ -377,14 +412,11 @@ const loadMsgs = () => {
                     ${heart}
                 </div>`;
             });
-            if ($('messages')) { $('messages').innerHTML = h; $('messages').scrollTop = $('messages').scrollHeight; }
+            if ($('messages') && activeChat === targetUser) { $('messages').innerHTML = h; $('messages').scrollTop = $('messages').scrollHeight; }
         });
     };
 
-    const handleTyping = () => {
-        if (mode === 'global') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000);
-    };
+    const handleTyping = () => { if (mode === 'global' || mode === 'sidebar') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000); };
 
     function initApp() {
         if ($('login-screen')) $('login-screen').style.display = 'none';
@@ -392,6 +424,10 @@ const loadMsgs = () => {
         if ($('my-usertag')) $('my-usertag').innerText = user; 
         if ($('my-avatar')) $('my-avatar').src = avatar;
         
+        if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
+            if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
+        }
+
         const userRef = ref(db, `users/${user}`); update(userRef, { online: true });
         onDisconnect(userRef).update({ online: false });
 
@@ -434,7 +470,8 @@ const loadMsgs = () => {
                             const bEl = $(`bad-${u.username.replace('@','')}`);
                             if(bEl) { if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; } }
                             
-                            if(!firstLoad && lastMsg && !lastMsg.read && mode !== cId) { 
+                            // Уведомляем, если чат неактивен ИЛИ вкладка/экран заблокированы
+                            if(!firstLoad && lastMsg && !lastMsg.read && (activeChat !== u.username || !isWindowFocused)) { 
                                 processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar, u.username, dName);
                             }
                             firstLoad = false;
@@ -448,12 +485,9 @@ const loadMsgs = () => {
 
         let fG = true, cG = 0;
         onValue(ref(db, 'messages/global'), (snap) => {
-            if (!fG && snap.exists() && snap.size > cG && mode !== 'global') {
-                if ($('g-unread')) $('g-unread').style.display = 'inline'; 
-                
-                let lastM = null;
-                snap.forEach(child => { lastM = child.val(); });
-                
+            if (!fG && snap.exists() && snap.size > cG && (activeChat !== 'global' || !isWindowFocused)) {
+                if ($('g-unread') && activeChat !== 'global') $('g-unread').style.display = 'inline'; 
+                let lastM = null; snap.forEach(child => { lastM = child.val(); });
                 if(lastM && lastM.sender !== user) { 
                     processIncomingNotification("🌍 Общий чат", `${lastM.senderName || lastM.sender}: ${lastM.text}`, '', null, null);
                 }
@@ -463,7 +497,6 @@ const loadMsgs = () => {
         if (window.innerWidth > 768) openChat('global');
     }
 
-    // Привязываем события через безопасный метод safeListen
     safeListen('avatar-file', 'change', (e) => processAv(e, 'login-preview'));
     safeListen('modal-avatar-file', 'change', (e) => processAv(e, 'modal-preview'));
     safeListen('login-submit-btn', 'click', login);
@@ -477,7 +510,17 @@ const loadMsgs = () => {
     safeListen('modal-logout-btn', 'click', logout);
     safeListen('modal-cancel-btn', 'click', () => { if ($('prof-modal')) $('prof-modal').style.display = 'none'; });
     safeListen('global-chat-tab', 'click', () => openChat('global'));
-    safeListen('back-btn', 'click', () => { if ($('sidebar')) $('sidebar').classList.remove('hidden'); });
+    
+    // Кнопка назад полностью сбрасывает контекст чата
+    safeListen('back-btn', 'click', () => { 
+        if ($('sidebar')) $('sidebar').classList.remove('hidden'); 
+        activeChat = null; mode = 'sidebar';
+        if (lastList) { lastList(); lastList = null; }
+        if ($('chat-title')) $('chat-title').innerText = 'Выберите чат';
+        if ($('chat-subtitle')) $('chat-subtitle').innerText = '';
+        if ($('messages')) $('messages').innerHTML = '';
+    });
+    
     safeListen('send-btn', 'click', send); 
     safeListen('message-input', 'input', handleTyping);
     safeListen('message-input', 'keypress', (e) => { if(e.key==='Enter') send(); });
@@ -495,7 +538,6 @@ const loadMsgs = () => {
         lastTap = now;
     });
 
-    // Авто-логин
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
