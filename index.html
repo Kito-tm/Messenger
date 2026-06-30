@@ -63,18 +63,33 @@
         #message-input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ddd; outline: none; font-size: 16px; }
         #send-btn { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; padding: 0; margin-top: 0; }
         
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
-        
+        /* Стили всплывающего тост-уведомления сверху экрана */
+        #toast-notification { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 360px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; align-items: center; z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; border-left: 4px solid #248bcf; }
+        #toast-notification.show { top: calc(12px + env(safe-area-inset-top)); }
+        #toast-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; background: #eee; }
+        #toast-content { flex: 1; min-width: 0; }
+        #toast-title { font-weight: bold; font-size: 14px; color: #222; }
+        #toast-text { font-size: 13px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
         @media (max-width: 768px) {
             #sidebar { width: 100%; position: absolute; inset: 0; z-index: 10; }
             #sidebar.hidden { display: none; }
             #chat-area { width: 100%; }
             #back-btn { display: block; }
         }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
+
+<div id="toast-notification">
+    <img id="toast-img" src="">
+    <div id="toast-content">
+        <div id="toast-title"></div>
+        <div id="toast-text"></div>
+    </div>
+</div>
 
 <div id="login-screen">
     <div class="box">
@@ -135,17 +150,14 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-    // Глобальный перехват ошибок для отладки на смартфонах
     window.addEventListener('error', (e) => alert("Система: " + e.message));
 
-    // Локальное хранилище данных с защитой от сбоев приватного режима
     const store = {
         set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) { window['m_'+k] = v; } },
         get: (k) => { try { return localStorage.getItem(k) || window['m_'+k]; } catch(e) { return window['m_'+k]; } },
         clear: () => { try { localStorage.clear(); } catch(e) {} }
     };
 
-    // Конфигурация базы данных Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCTDqpLLsbolvQlxGEqUZLR561Irsq57Po",
         authDomain: "messenger-2e22b.firebaseapp.com",
@@ -158,37 +170,84 @@
 
     const db = getDatabase(initializeApp(firebaseConfig));
     let user = null, displayName = null, avatar = null, mode = 'global', lastList = null;
-    let unreadUnsubs = [], typingTimeout = null, lastTap = 0, hTypingUnsub = null, hOnlineUnsub = null;
+    let unreadUnsubs = [], typingTimeout = null, lastTap = 0, hTypingUnsub = null, hOnlineUnsub = null, toastTimeout = null;
 
-    const $ = id => document.getElementById(id);
-
-    // Безопасный запрос разрешений на уведомления (исправлено для iOS)
+    const $ = id => document.getElementById
+  // Запрос стандартного разрешения на системные пуши
     if ('Notification' in window && window.Notification.permission === 'default') {
         window.Notification.requestPermission();
     }
 
-    // Регистрация фонового Blob-скрипта Service Worker для стабильных пушей на Android
-    if ('serviceWorker' in navigator && 'Notification' in window) {
-        const swCode = 'self.addEventListener("notificationclick",e=>{e.notification.close();e.waitUntil(clients.matchAll({type:"window"}).then(c=>{if(c.length>0)return c[0].focus();if(clients.openWindow)return clients.openWindow("./");}));});';
-        const blob = new Blob([swCode], {type:'application/javascript'});
-        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
-    }
+    // Динамическая генерация аудио-сигнала (Chime) через Web Audio API (100% поддержка на iOS/Android)
+    const playChime = () => {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return;
+            const ctx = new AudioContext();
+            
+            const osc1 = ctx.createOscillator(); const gain1 = ctx.createGain();
+            osc1.type = 'sine'; osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // Ре 5-й октавы
+            gain1.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            osc1.connect(gain1); gain1.connect(ctx.destination);
+            osc1.start(); osc1.stop(ctx.currentTime + 0.12);
+            
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
+                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, ctx.currentTime); // Ля 5-й октавы
+                gain2.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+                osc2.connect(gain2); gain2.connect(ctx.destination);
+                osc2.start(); osc2.stop(ctx.currentTime + 0.22);
+            }, 75);
+        } catch (e) {}
+    };
 
-    // Функция отправки пуш-уведомлений в шторку смартфона (полная поддержка iOS/Android)
-    const pushNotify = (title, body, icon) => {
-        if ('Notification' in window && window.Notification.permission === 'granted') {
+    // Функция безопасной отправки системных Push-уведомлений
+    const sendSystemPush = (title, body, icon) => {
+        if (!('Notification' in window) || window.Notification.permission !== 'granted') return;
+        try {
+            const n = new window.Notification(title, { body: body, icon: icon || '' });
+            n.onclick = () => { window.focus(); };
+        } catch (e) {
+            // Резервный вызов для Android Chrome, если заблокирован прямой вызов конструктора
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, { body: body, icon: icon || '' });
-                }).catch(() => {
-                    if ('Notification' in window) new window.Notification(title, { body: body, icon: icon || '' });
-                });
-            } else {
-                new window.Notification(title, { body: body, icon: icon || '' });
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    if (regs && regs.length > 0) regs[0].showNotification(title, { body: body, icon: icon || '' });
+                }).catch(() => {});
             }
         }
     };
-   // Сжатие и обработка загружаемых аватарок во избежание перегрузки базы данных
+
+    // Логика отображения всплывающего внутреннего смарт-баннера (Тоста)
+    const displayToastNotification = (title, text, av, targetNick, targetName) => {
+        // 1. Включаем звук и вибрацию
+        playChime();
+        if ('vibrate' in navigator) navigator.vibrate([150]);
+
+        // 2. Отрисовываем пуш на экране
+        $('toast-img').src = av || `https://ui-avatars.com/api/?name=${title}&background=random`;
+        $('toast-title').innerText = title;
+        $('toast-text').innerText = text;
+        
+        const toast = $('toast-notification');
+        toast.onclick = () => {
+            toast.classList.remove('show');
+            if (targetNick) { openChat(targetNick, targetName); } else { openChat('global'); }
+        };
+        
+        toast.classList.add('show');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
+    };
+
+    // Комплексный триггер для обработки входящего сообщения вне текущего диалога
+    const processIncomingNotification = (title, text, av, targetNick, targetName) => {
+        // Отправляем системный пуш в шторку (для заблокированного экрана или фона)
+        sendSystemPush(title, text, av);
+        // Выводим внутренний баннер со звуком и вибрацией (для активного приложения)
+        displayToastNotification(title, text, av, targetNick, targetName);
+    };
+
     const processAv = (e, pId) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
@@ -204,7 +263,6 @@
         r.readAsDataURL(f);
     };
 
-    // Авторизация и регистрация пользователей
     const login = async () => {
         let n = $('nickname-input').value.trim(); let p = $('password-input').value.trim();
         if (!n || !p) return alert("Заполните логин и пароль!");
@@ -225,7 +283,6 @@
 
     const logout = () => { if(user) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
 
-    // Сохранение изменений в профиле
     const saveProfile = async () => {
         let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
@@ -241,7 +298,6 @@
         $('my-name').innerText = displayName; $('my-usertag').innerText = user; $('my-avatar').src = avatar; $('prof-modal').style.display = 'none';
     };
 
-    // Переключение между диалогами
     const openChat = (t, dName) => {
         mode = t === 'global' ? 'global' : [user, t].sort().join('_');
         $('chat-title').innerText = t === 'global' ? 'Общий чат' : dName;
@@ -275,9 +331,7 @@
         }
         loadMsgs();
     };
-
-    // Рендеринг и подгрузка сообщений в реальном времени
-    const loadMsgs = () => {
+const loadMsgs = () => {
         if (lastList) lastList();
         lastList = onValue(ref(db, `messages/${mode}`), (snap) => {
             let h = '', lastDt = '';
@@ -303,23 +357,19 @@
         });
     };
 
-    // Функция отправки сообщений
     const send = () => {
         const txt = $('message-input').value.trim(); if (!txt) return;
         push(ref(db, `messages/${mode}`), { sender: user, senderName: displayName, text: txt, timestamp: Date.now(), read: false });
         $('message-input').value = ''; set(ref(db, `typing/${mode}/${user}`), null);
     };
 
-    // Делаем функцию send глобальной, чтобы избежать ошибок видимости при старых inline HTML-атрибутах
     window.send = send;
 
-    // Статус "Печатает..."
     const handleTyping = () => {
         if (mode === 'global') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000);
     };
 
-    // Главная инициализация приложения после успешного входа
     function initApp() {
         $('login-screen').style.display = 'none';
         $('my-name').innerText = displayName; $('my-usertag').innerText = user; $('my-avatar').src = avatar;
@@ -343,7 +393,8 @@
                         </div>
                         <div class="badge" id="bad-${u.username.replace('@','')}" style="display:none;">0</div>
                     </div>`;
-setTimeout(() => {
+
+                    setTimeout(() => {
                         const sEl = $(`st-${u.username.replace('@','')}`); const dEl = $(`dot-${u.username.replace('@','')}`);
                         onValue(ref(db, `users/${u.username}/online`), (osnap) => {
                             const isOnline = osnap.val() === true; dEl.className = `dot ${isOnline?'on':''}`;
@@ -358,13 +409,18 @@ setTimeout(() => {
                             }
                         });
 
+                        // Исправленный триггер получения пушей в личных сообщениях
                         let firstLoad = true;
                         const unsubUnread = onValue(ref(db, `messages/${cId}`), (msnap) => {
                             let count = 0, lastMsg = null;
                             msnap.forEach((m) => { const md = m.val(); if(md.sender !== user) { if(!md.read) count++; lastMsg = md; } });
                             const bEl = $(`bad-${u.username.replace('@','')}`);
                             if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; }
-                            if(!firstLoad && lastMsg && !lastMsg.read && mode !== cId) { pushNotify(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar); }
+                            
+                            // Вызов пуша: если сообщение новое, не прочитано и юзер сейчас в другом чате
+                            if(!firstLoad && lastMsg && !lastMsg.read && mode !== cId) { 
+                                processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar, u.username, dName);
+                            }
                             firstLoad = false;
                         });
                         unreadUnsubs.push(unsubUnread);
@@ -374,20 +430,24 @@ setTimeout(() => {
             $('user-list').innerHTML = h;
         });
 
+        // Исправленный триггер получения пушей в Общем чате
         let fG = true, cG = 0;
         onValue(ref(db, 'messages/global'), (snap) => {
             if (!fG && snap.exists() && snap.size > cG && mode !== 'global') {
                 $('g-unread').style.display = 'inline'; 
-                let globalData = snap.val();
-                let lastM = globalData ? [...Object.values(globalData)].pop() : null;
-                if(lastM && lastM.sender !== user) { pushNotify("🌍 Общий чат", `${lastM.senderName || lastM.sender}: ${lastM.text}`); }
+                
+                let lastM = null;
+                snap.forEach(child => { lastM = child.val(); }); // Гарантированный забор последнего элемента
+                
+                if(lastM && lastM.sender !== user) { 
+                    processIncomingNotification("🌍 Общий чат", `${lastM.senderName || lastM.sender}: ${lastM.text}`, '', null, null);
+                }
             }
             cG = snap.exists() ? snap.size : 0; fG = false;
         });
         if (window.innerWidth > 768) openChat('global');
     }
 
-    // Слушатели событий интерфейса
     $('avatar-file').addEventListener('change', (e) => processAv(e, 'login-preview'));
     $('modal-avatar-file').addEventListener('change', (e) => processAv(e, 'modal-preview'));
     $('login-submit-btn').addEventListener('click', login);
@@ -406,7 +466,6 @@ setTimeout(() => {
         const card = e.target.closest('.contact'); if (card) openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'));
     });
 
-    // Поставить/убрать лайк (событие Двойного тапа на сообщение)
     $('messages').addEventListener('click', (e) => {
         const msgEl = e.target.closest('.msg'); if (!msgEl) return; const now = Date.now();
         if (now - lastTap < 300) {
@@ -416,7 +475,6 @@ setTimeout(() => {
         lastTap = now;
     });
 
-    // Авто-вход, если включена галочка "Запомнить меня"
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
