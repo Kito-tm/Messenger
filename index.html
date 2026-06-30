@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TG Crypto Ultimate</title>
+    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         body { display: flex; height: 100dvh; background: #eef2f5; overflow: hidden; }
@@ -129,18 +130,22 @@
         <button id="send-btn">▶</button>
     </div>
 </div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
+    // Глобальный перехват ошибок для отладки на смартфонах
     window.addEventListener('error', (e) => alert("Система: " + e.message));
 
+    // Локальное хранилище данных с защитой от сбоев приватного режима
     const store = {
         set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) { window['m_'+k] = v; } },
         get: (k) => { try { return localStorage.getItem(k) || window['m_'+k]; } catch(e) { return window['m_'+k]; } },
         clear: () => { try { localStorage.clear(); } catch(e) {} }
     };
 
+    // Конфигурация базы данных Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCTDqpLLsbolvQlxGEqUZLR561Irsq57Po",
         authDomain: "messenger-2e22b.firebaseapp.com",
@@ -157,28 +162,33 @@
 
     const $ = id => document.getElementById(id);
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // Безопасный запрос разрешений на уведомления (исправлено для iOS)
+    if ('Notification' in window && window.Notification.permission === 'default') {
+        window.Notification.requestPermission();
     }
 
+    // Регистрация фонового Blob-скрипта Service Worker для стабильных пушей на Android
     if ('serviceWorker' in navigator && 'Notification' in window) {
         const swCode = 'self.addEventListener("notificationclick",e=>{e.notification.close();e.waitUntil(clients.matchAll({type:"window"}).then(c=>{if(c.length>0)return c[0].focus();if(clients.openWindow)return clients.openWindow("./");}));});';
         const blob = new Blob([swCode], {type:'application/javascript'});
         navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
     }
 
+    // Функция отправки пуш-уведомлений в шторку смартфона (полная поддержка iOS/Android)
     const pushNotify = (title, body, icon) => {
-        if ('Notification' in window && Notification.permission === 'granted') {
+        if ('Notification' in window && window.Notification.permission === 'granted') {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
                     reg.showNotification(title, { body: body, icon: icon || '' });
-                }).catch(() => new Notification(title, { body: body, icon: icon || '' }));
+                }).catch(() => {
+                    if ('Notification' in window) new window.Notification(title, { body: body, icon: icon || '' });
+                });
             } else {
-                new Notification(title, { body: body, icon: icon || '' });
+                new window.Notification(title, { body: body, icon: icon || '' });
             }
         }
     };
-
+   // Сжатие и обработка загружаемых аватарок во избежание перегрузки базы данных
     const processAv = (e, pId) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
@@ -194,6 +204,7 @@
         r.readAsDataURL(f);
     };
 
+    // Авторизация и регистрация пользователей
     const login = async () => {
         let n = $('nickname-input').value.trim(); let p = $('password-input').value.trim();
         if (!n || !p) return alert("Заполните логин и пароль!");
@@ -214,6 +225,7 @@
 
     const logout = () => { if(user) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
 
+    // Сохранение изменений в профиле
     const saveProfile = async () => {
         let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
@@ -229,6 +241,7 @@
         $('my-name').innerText = displayName; $('my-usertag').innerText = user; $('my-avatar').src = avatar; $('prof-modal').style.display = 'none';
     };
 
+    // Переключение между диалогами
     const openChat = (t, dName) => {
         mode = t === 'global' ? 'global' : [user, t].sort().join('_');
         $('chat-title').innerText = t === 'global' ? 'Общий чат' : dName;
@@ -263,6 +276,7 @@
         loadMsgs();
     };
 
+    // Рендеринг и подгрузка сообщений в реальном времени
     const loadMsgs = () => {
         if (lastList) lastList();
         lastList = onValue(ref(db, `messages/${mode}`), (snap) => {
@@ -289,17 +303,23 @@
         });
     };
 
+    // Функция отправки сообщений
     const send = () => {
         const txt = $('message-input').value.trim(); if (!txt) return;
         push(ref(db, `messages/${mode}`), { sender: user, senderName: displayName, text: txt, timestamp: Date.now(), read: false });
         $('message-input').value = ''; set(ref(db, `typing/${mode}/${user}`), null);
     };
 
+    // Делаем функцию send глобальной, чтобы избежать ошибок видимости при старых inline HTML-атрибутах
+    window.send = send;
+
+    // Статус "Печатает..."
     const handleTyping = () => {
         if (mode === 'global') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000);
     };
 
+    // Главная инициализация приложения после успешного входа
     function initApp() {
         $('login-screen').style.display = 'none';
         $('my-name').innerText = displayName; $('my-usertag').innerText = user; $('my-avatar').src = avatar;
@@ -323,8 +343,7 @@
                         </div>
                         <div class="badge" id="bad-${u.username.replace('@','')}" style="display:none;">0</div>
                     </div>`;
-
-                    setTimeout(() => {
+setTimeout(() => {
                         const sEl = $(`st-${u.username.replace('@','')}`); const dEl = $(`dot-${u.username.replace('@','')}`);
                         onValue(ref(db, `users/${u.username}/online`), (osnap) => {
                             const isOnline = osnap.val() === true; dEl.className = `dot ${isOnline?'on':''}`;
@@ -357,15 +376,18 @@
 
         let fG = true, cG = 0;
         onValue(ref(db, 'messages/global'), (snap) => {
-            if (!fG && snap.size > cG && mode !== 'global') {
-                $('g-unread').style.display = 'inline'; let lastM = [...Object.values(snap.val())].pop();
-                if(lastM && lastM.sender !== user) { pushNotify("🌍 Общий чат", `${lastM.senderName}: ${lastM.text}`); }
+            if (!fG && snap.exists() && snap.size > cG && mode !== 'global') {
+                $('g-unread').style.display = 'inline'; 
+                let globalData = snap.val();
+                let lastM = globalData ? [...Object.values(globalData)].pop() : null;
+                if(lastM && lastM.sender !== user) { pushNotify("🌍 Общий чат", `${lastM.senderName || lastM.sender}: ${lastM.text}`); }
             }
-            cG = snap.size; fG = false;
+            cG = snap.exists() ? snap.size : 0; fG = false;
         });
         if (window.innerWidth > 768) openChat('global');
     }
 
+    // Слушатели событий интерфейса
     $('avatar-file').addEventListener('change', (e) => processAv(e, 'login-preview'));
     $('modal-avatar-file').addEventListener('change', (e) => processAv(e, 'modal-preview'));
     $('login-submit-btn').addEventListener('click', login);
@@ -384,6 +406,7 @@
         const card = e.target.closest('.contact'); if (card) openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'));
     });
 
+    // Поставить/убрать лайк (событие Двойного тапа на сообщение)
     $('messages').addEventListener('click', (e) => {
         const msgEl = e.target.closest('.msg'); if (!msgEl) return; const now = Date.now();
         if (now - lastTap < 300) {
@@ -393,6 +416,7 @@
         lastTap = now;
     });
 
+    // Авто-вход, если включена галочка "Запомнить меня"
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
