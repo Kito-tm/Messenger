@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=TG&background=248bcf&color=fff&size=180">
     
     <style>
-        /* CSS ПЕРЕМЕННЫЕ ДЛЯ ПОДДЕРЖКИ СВЕТЛОЙ И ТЕМНОЙ ТЕМЫ */
+        /* ЦВЕТОВЫЕ ПЕРЕМЕННЫЕ (СВЕТЛАЯ И ОРИГИНАЛЬНАЯ ТЕМНАЯ ТЕМА TELEGRAM) */
         :root {
             --bg-main: #eef2f5;
             --bg-box: #ffffff;
@@ -27,9 +27,11 @@
             --msg-them: #ffffff;
             --msg-text: #222222;
             --msg-meta-me: #7cb0d4;
+            --reply-bg: rgba(36, 139, 207, 0.08);
+            --reply-border: #248bcf;
             --chat-wallpaper-1: #f0f4f7;
             --chat-wallpaper-2: #e1e9f0;
-            --chat-wallpaper-3: #101921;
+            --chat-wallpaper-3: #0e1621;
         }
 
         :root[data-theme="dark"] {
@@ -42,10 +44,12 @@
             --border-color: #101921;
             --text-main: #f5f5f5;
             --text-sub: #7f91a4;
-            --msg-me: #2b5278;
-            --msg-them: #182533;
+            --msg-me: #2b5278;      /* Сине-серый пузырь отправленного сообщения */
+            --msg-them: #182533;    /* Темный пузырь входящего сообщения */
             --msg-text: #ffffff;
             --msg-meta-me: #7e9bb9;
+            --reply-bg: rgba(255, 255, 255, 0.06);
+            --reply-border: #5288c1; /* Характерная линия ответа в ТГ */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -55,7 +59,7 @@
         #prof-modal, #forward-modal { display: none; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
         
         .box { background: var(--bg-box); color: var(--text-main); padding: 25px; border-radius: 15px; text-align: center; width: 92%; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); transition: background 0.2s; }
-        .stg-scroll-area { max-height: 65vh; overflow-y: auto; padding-right: 5px; margin: 15px 0; text-align: left; }
+        .stg-scroll-area { max-height: 60vh; overflow-y: auto; padding-right: 5px; margin: 15px 0; text-align: left; }
         
         .stg-section { background: rgba(120,135,145,0.08); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
         .stg-section-title { font-size: 12px; font-weight: bold; color: #248bcf; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
@@ -113,18 +117,22 @@
         #chat-title { font-weight: bold; color: var(--text-main); }
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: var(--bg-chat); transition: background 0.2s; }
         
-        .dt-sep { align-self: center; background: rgba(120,135,145,0.4); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 10px; margin: 10px 0; font-weight: 500; }
+        .dt-sep { align-self: center; background: rgba(120,135,145,0.4); color: #fff; font-size: 11px; padding: 3px 9px; border-radius: 10px; margin: 10px 0; font-weight: 500; user-select: none; }
         
-        .msg { padding: 8px 14px; border-radius: 14px; margin-bottom: 14px; max-width: 75%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.05); position: relative; user-select: none; color: var(--msg-text); }
-        .msg.me { align-self: flex-end; background: var(--msg-me); border-bottom-right-radius: 4px; }
-        .msg.them { align-self: flex-start; background: var(--msg-them); border-bottom-left-radius: 4px; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 11px; color: var(--text-sub); margin-top: 2px; align-self: flex-end; }
+        /* СТИЛИЗАЦИЯ СООБЩЕНИЙ ПОД TELEGRAM */
+        .msg { padding: 6px 10px 7px 10px; border-radius: 12px; margin-bottom: 6px; max-width: 70%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 1.5px rgba(0,0,0,0.12); position: relative; user-select: none; color: var(--msg-text); line-height: 1.4; }
+        .msg.me { align-self: flex-end; background: var(--msg-me); border-bottom-right-radius: 3px; }
+        .msg.them { align-self: flex-start; background: var(--msg-them); border-bottom-left-radius: 3px; }
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 11px; color: var(--text-sub); margin-top: 2px; align-self: flex-end; margin-left: 20px; user-select: none; }
         .msg.me .msg-meta { color: var(--msg-meta-me); }
         .ticks { margin-left: 4px; font-weight: bold; }
         
-        .reply-sub-block { border-left: 3px solid #248bcf; padding-left: 6px; margin-bottom: 5px; font-size: 13px; color: var(--text-sub); background: rgba(0,0,0,0.03); border-radius: 2px; padding: 3px 6px; }
-        .reply-sub-sender { font-weight: bold; color: #248bcf; font-size: 12px; }
-        .fwd-sub-title { font-style: italic; font-size: 11px; color: var(--text-sub); margin-bottom: 2px; }
+        /* ТЕЛЕГРАМ-РАМКА ОТВЕТА (ЦИТАТЫ) ВНУТРИ ПУЗЫРЯ */
+        .reply-sub-block { border-left: 3px solid var(--reply-border); padding: 3px 8px; margin-bottom: 5px; font-size: 13px; background: var(--reply-bg); border-radius: 3px; display: flex; flex-direction: column; gap: 1px; }
+        .reply-sub-sender { font-weight: bold; color: #248bcf; font-size: 12.5px; }
+        :root[data-theme="dark"] .reply-sub-sender { color: #5288c1; }
+        .reply-sub-text { opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fwd-sub-title { font-style: italic; font-size: 11px; color: var(--text-sub); margin-bottom: 3px; }
         
         .msg-heart { position: absolute; bottom: -10px; right: 10px; background: var(--bg-box); border: 1px solid var(--border-color); border-radius: 10px; padding: 1px 4px; font-size: 11px; display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
         
@@ -195,10 +203,11 @@
         <label class="file-lbl">Выбрать фото (опционально)<input type="file" id="avatar-file" accept="image/*" style="display:none;"></label>
         <input type="text" id="nickname-input" placeholder="@username">
         <input type="password" id="password-input" placeholder="Пароль">
-        <label class="rem-cb"><input type="checkbox" id="remember-me"> Запомнить меня</label>
+        <label class="rem-cb"><input type="checkbox" id="remember-me" checked> Запомнить меня</label>
         <button id="login-submit-btn">Войти / Создать</button>
     </div>
 </div>
+
 <div id="prof-modal">
     <div class="box">
         <h2>Настройки профиля</h2>
@@ -227,8 +236,8 @@
                     <span>Фон диалогов:</span>
                     <select id="wallpaper-select">
                         <option value="classic">Классический серый</option>
-                        <option value="sky">Фирменный синий</option>
-                        <option value="dark">Глубокий ночной</option>
+                        <option value="sky">Фирменный синий (Узор)</option>
+                        <option value="dark">Глубокий ночной (Узор)</option>
                     </select>
                 </div>
             </div>
@@ -317,7 +326,7 @@
         clear: () => { try { localStorage.clear(); } catch(e) {} }
     };
 
-    // ПЕРВИЧНАЯ НАСТРОЙКА ТЕМЫ ДО ОТРИСОВКИ СТРАНИЦЫ
+  // НАСТРОЙКА ТЕМЫ И ОБОЕВ ДО СТАРТА ОТРИСОВКИ
     const currentTheme = store.get('tg_theme') || 'light';
     document.documentElement.setAttribute('data-theme', currentTheme);
 
@@ -357,7 +366,7 @@
                     saveOfflineQueue();
                     const ticksEl = document.querySelector(`[data-id="${item.key}"] .ticks`);
                     if (ticksEl) ticksEl.innerText = ' ✓';
-                }).catch(e => console.log("Ожидание сети для синхронизации...", e));
+                }).catch(e => console.log("Синхронизация...", e));
         });
     };
 
@@ -377,13 +386,20 @@
     const $ = id => document.getElementById(id);
     const safeListen = (id, event, fn) => { const el = $(id); if (el) el.addEventListener(event, fn); };
 
-    // УПРАВЛЕНИЕ ОБОЯМИ ЧАТА
+    // УПРАВЛЕНИЕ ОБОЯМИ ЧАТА С СИСТЕМНЫМИ ТЕКСТУРАМИ TELEGRAM
     const applyWallpaper = (wp) => {
         const msgArea = $('messages');
         if (!msgArea) return;
-        if (wp === 'sky') msgArea.style.background = 'var(--chat-wallpaper-2)';
-        else if (wp === 'dark') msgArea.style.background = 'var(--chat-wallpaper-3)';
-        else msgArea.style.background = 'var(--chat-wallpaper-1)';
+        if (wp === 'sky') {
+            msgArea.style.backgroundColor = '#2b5278';
+            msgArea.style.backgroundImage = "url('https://www.transparenttextures.com/patterns/subtle-dots.png')";
+        } else if (wp === 'dark') {
+            msgArea.style.backgroundColor = '#0e1621';
+            msgArea.style.backgroundImage = "url('https://www.transparenttextures.com/patterns/dark-matter.png')";
+        } else {
+            msgArea.style.backgroundColor = 'var(--bg-chat)';
+            msgArea.style.backgroundImage = "none";
+        }
     };
 
     window.addEventListener('focus', () => { 
@@ -401,14 +417,10 @@
     const requestNotificationPermission = () => {
         if ('Notification' in window && window.Notification) {
             window.Notification.requestPermission().then(permission => {
-                if (permission === 'granted') alert('Системные уведомления успешно включены.');
+                if (permission === 'granted') alert('Уведомления успешно включены.');
             });
         }
     };
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
-    }
 
     const send = () => {
         const txt = $('message-input') ? $('message-input').value.trim() : ''; 
@@ -470,7 +482,7 @@
     const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
         if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
-        $('toast-img').src = av || `https://ui-avatars.com/api/?name=${title}&background=random`;
+        $('toast-img').src = av || `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random`;
         $('toast-title').innerText = title;
         $('toast-text').innerText = text;
         const toast = $('toast-notification');
@@ -483,20 +495,16 @@
         toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     };
 
-    const processIncomingNotification = (title, text, av, targetNick, targetName) => {
-        if ('vibrate' in navigator) navigator.vibrate([150]);
-        displayToastNotification(title, text, av, targetNick, targetName);
-    };
-
     const processAv = (e, pId) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
         r.onload = (ev) => {
             const img = new Image();
             img.onload = () => {
-                const c = document.createElement('canvas'); c.width = c.height = 96; 
-                c.getContext('2d').drawImage(img, 0, 0, 96, 96);
-                avatar = c.toDataURL('image/jpeg', 0.5); if ($(pId)) { $(pId).src = avatar; $(pId).style.display = 'block'; }
+                const c = document.createElement('canvas'); c.width = c.height = 120; 
+                c.getContext('2d').drawImage(img, 0, 0, 120, 120);
+                avatar = c.toDataURL('image/jpeg', 0.6); 
+                if ($(pId)) { $(pId).src = avatar; $(pId).style.display = 'block'; }
             };
             img.src = ev.target.result;
         };
@@ -513,32 +521,65 @@ const login = async () => {
             user = n; displayName = uData.displayName || n.replace('@', ''); avatar = uData.avatar;
         } else {
             user = n; displayName = n.replace('@', ''); 
-            if (!avatar) avatar = `https://ui-avatars.com/api/?name=${displayName}&background=random`;
+            if (!avatar) avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
             await set(ref(db, `users/${user}`), { username: user, displayName: displayName, avatar: avatar, password: p, online: true });
         }
-        if ($('remember-me') && $('remember-me').checked) { store.set('c_nk', user); store.set('c_pv', p); }
+        // ВСЕГДА сохраняем учетные данные для предотвращения сброса сессии при обновлении
+        store.set('c_nk', user); store.set('c_pv', p);
         initApp();
     };
 
     const logout = () => { if(user && isNetworkOnline) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
 
+    // ИСПРАВЛЕННОЕ СОХРАНЕНИЕ ПРОФИЛЯ БЕЗ ЖЕСТКОЙ ПЕРЕЗАГРУЗКИ СТРАНИЦЫ
     const saveProfile = async () => {
-        let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
+        let newDN = $('modal-display-name-input').value.trim(); 
+        let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
-        if (!newUN.startsWith('@')) newUN = '@' + newUN; newUN = newUN.replace(/[.#$\[\]]/g, '');
-        const currentSnap = await get(ref(db, `users/${user}`)); const currentData = currentSnap.val() || {};
+        if (!newUN.startsWith('@')) newUN = '@' + newUN; 
+        newUN = newUN.replace(/[.#$\[\]]/g, '');
+
+        if (!isNetworkOnline) return alert("Невозможно сохранить профиль без подключения к сети!");
+
+        const currentSnap = await get(ref(db, `users/${user}`)); 
+        const currentData = currentSnap.val() || {};
+        const password = currentData.password || store.get('c_pv') || "12345";
+
         if (newUN !== user) {
             const snap = await get(ref(db, `users/${newUN}`)); if (snap.exists()) return alert("Этот @username уже занят!");
-            await set(ref(db, `users/${user}`), null); user = newUN; if (store.get('c_nk')) store.set('c_nk', user);
+            await set(ref(db, `users/${user}`), null);
         }
-        displayName = newDN; avatar = avatar || `https://ui-avatars.com/api/?name=${displayName}&background=random`;
-        await set(ref(db, `users/${user}`), { username: user, displayName: displayName, avatar: avatar, password: currentData.password || store.get('c_pv'), online: true });
+
+        user = newUN;
+        displayName = newDN;
+        avatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+
+        const updatedUserPayload = { 
+            username: user, 
+            displayName: displayName, 
+            avatar: avatar, 
+            password: password, 
+            online: true 
+        };
+
+        await set(ref(db, `users/${user}`), updatedUserPayload);
         
-        // Сохранение кастомизации
+        // Гарантируем перезапись авторизационных ключей
+        store.set('c_nk', user); 
+        store.set('c_pv', password); 
+
+        // Кастомизация обоев
         const selectedWp = $('wallpaper-select').value;
         store.set('tg_wallpaper', selectedWp);
+        applyWallpaper(selectedWp);
 
-        location.reload();
+        // ДИНАМИЧЕСКИ ОБНОВЛЯЕМ ИНТЕРФЕЙС БЕЗ СБРОСА СОСТОЯНИЯ КОДА
+        if ($('my-name')) $('my-name').innerText = displayName; 
+        if ($('my-usertag')) $('my-usertag').innerText = user; 
+        if ($('my-avatar')) $('my-avatar').src = avatar;
+
+        if ($('prof-modal')) $('prof-modal').style.display = 'none';
+        alert("Профиль успешно обновлен!");
     };
 
     const openChat = (t, dName, avUrl) => {
@@ -547,7 +588,7 @@ const login = async () => {
         cancelReply();
         
         if ($('chat-avatar')) {
-            $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${dName}&background=random`;
+            $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(dName)}&background=random`;
             $('chat-avatar').style.display = 'block';
         }
         if ($('chat-title')) $('chat-title').innerText = dName;
@@ -596,11 +637,12 @@ const login = async () => {
                 const ticks = isMe ? (isPending ? ' 🕒' : (d.read ? ' ✓✓' : ' ✓')) : '';
                 const heart = d.liked ? `<div class="msg-heart">❤️</div>` : '';
 
+                // ОТРЕНДЕРЕННАЯ СТРУКТУРА ОТВЕТА (ЦИТАТЫ) С ВЕРТИКАЛЬНЫМ ТЕЛЕГРАМ-БОКСОМ
                 let replyMarkup = '';
                 if (d.replyToId) {
                     replyMarkup = `<div class="reply-sub-block">
                         <div class="reply-sub-sender">${d.replyToSenderName}</div>
-                        <div>${d.replyToText}</div>
+                        <div class="reply-sub-text">${d.replyToText}</div>
                     </div>`;
                 } else if (d.fwdFrom) {
                     replyMarkup = `<div class="fwd-sub-title">↪️ Переслано от ${d.fwdFrom}</div>`;
@@ -623,17 +665,16 @@ const login = async () => {
         if ($('login-screen')) $('login-screen').style.display = 'none';
         if ($('my-name')) $('my-name').innerText = displayName; 
         if ($('my-usertag')) $('my-usertag').innerText = user; 
-        if ($('my-avatar')) $('my-avatar').src = avatar;
+        if ($('my-avatar') && avatar) $('my-avatar').src = avatar;
         if ($('auth-notifications-btn') && 'Notification' in window && window.Notification.permission === 'granted') $('auth-notifications-btn').style.display = 'none';
 
-        // Генерация красивого криптографического хэша для раздела настроек
+        // Генерация красивого отпечатка крипто-ключа
         if ($('crypto-fingerprint')) {
             let hash = ""; const str = user + "crypto_salt_2026";
             for (let i = 0; i < str.length; i++) hash += str.charCodeAt(i).toString(16);
             $('crypto-fingerprint').innerText = "SHA256:" + hash.substring(0, 28).toUpperCase() + "...";
         }
 
-        // Выставляем состояние чекбокса темы
         if ($('theme-toggle-cb')) $('theme-toggle-cb').checked = (store.get('tg_theme') === 'dark');
         if ($('wallpaper-select')) $('wallpaper-select').value = store.get('tg_wallpaper') || 'classic';
 
@@ -674,7 +715,7 @@ const login = async () => {
                         
                         if (window.roomsLoaded && window.roomsLoaded[cId]) {
                             if (lastMsg && !lastMsg.read && lastMsg.timestamp > window.roomsLoaded[cId] && (activeChat !== username || !isWindowFocused)) {
-                                processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, knownUsers[username].avatar, username, knownUsers[username].displayName);
+                                displayToastNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, knownUsers[username].avatar, username, knownUsers[username].displayName);
                             }
                         }
                         if (!window.roomsLoaded) window.roomsLoaded = {};
@@ -702,7 +743,7 @@ const login = async () => {
         if (!searchVal) {
             conversations.forEach(c => { html += createContactHtml(c.user, c.unreadCount, c.lastMsg); });
             if (conversations.length === 0) {
-                html = `<div style="padding:25px; text-align:center; color: var(--text-sub); font-size:14px; line-height:1.4;">История диалогов пуста.<br>Введите точный юзернейм для начала общения!</div>`;
+                html = `<div style="padding:25px; text-align:center; color: var(--text-sub); font-size:14px; line-height:1.4;">Диалогов нет.<br>Введите точный юзернейм в поиск для начала общения.</div>`;
             }
         } else {
             const filtered = conversations.filter(c => {
@@ -720,13 +761,13 @@ const login = async () => {
             if (globalSearchResult && globalSearchResult.username !== user) {
                 html += createGlobalContactHtml(globalSearchResult);
             } else {
-                html += `<div style="padding:15px; text-align:center; color: var(--text-sub); font-size:13px;">Ничего не найдено</div>`;
+                html += `<div style="padding:15px; text-align:center; color: var(--text-sub); font-size:13px;">Пользователь не найден</div>`;
             }
         }
         if ($('user-list')) $('user-list').innerHTML = html;
     }
 
-    function createContactHtml(u, unreadCount, lastMsg) {
+function createContactHtml(u, unreadCount, lastMsg) {
         const username = u.username; const dName = u.displayName || username.replace('@', '');
         const isOnline = onlineStatus[username] === true;
         const cId = [user, username].sort().join('_');
@@ -766,11 +807,12 @@ const login = async () => {
         </div>`;
     }
 
- // ИНТЕРФЕЙСНЫЙ ТРИГГЕР СМЕНЫ ТЕМЫ ОНЛАЙН
+    // ТРИГГЕР ДИНАМИЧЕСКОГО ПЕРЕКЛЮЧЕНИЯ ТЕМЫ ОНЛАЙН ВМЕСТЕ С ПЕРЕМЕННЫМИ ОТВЕТОВ
     safeListen('theme-toggle-cb', 'change', (e) => {
         const targetTh = e.target.checked ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', targetTh);
         store.set('tg_theme', targetTh);
+        applyWallpaper($('wallpaper-select').value);
     });
 
     safeListen('search-user-input', 'input', (e) => {
@@ -796,8 +838,7 @@ const login = async () => {
         menu.style.left = `${x}px`; menu.style.top = `${y}px`; menu.style.display = 'flex';
     };
 
-    const hideMenu = () => { if ($('context-menu')) $('context-menu').style.display = 'none'; };
-    document.addEventListener('click', hideMenu);
+    document.addEventListener('click', () => { if ($('context-menu')) $('context-menu').style.display = 'none'; });
 
     safeListen('messages', 'contextmenu', (e) => {
         const msgEl = e.target.closest('.msg'); if (!msgEl) return;
@@ -813,12 +854,12 @@ const login = async () => {
     safeListen('ctx-reply', 'click', () => {
         replyToId = selectedMsgId; replyToText = selectedMsgText; replyToSenderName = selectedMsgSenderName;
         $('reply-preview-text').innerText = `Ответ на сообщение от ${replyToSenderName}: "${replyToText}"`;
-        $('reply-preview-bar').style.display = 'flex'; hideMenu();
+        $('reply-preview-bar').style.display = 'flex';
         if ($('message-input')) $('message-input').focus();
     });
 
     safeListen('ctx-forward', 'click', () => {
-        hideMenu(); let listHtml = '';
+        let listHtml = '';
         Object.keys(knownUsers).forEach(username => {
             if(username === user) return;
             const u = knownUsers[username];
@@ -864,7 +905,7 @@ const login = async () => {
         if (!isNetworkOnline) return alert("Лайкать сообщения можно только с интернетом!");
         const targetMsg = $('messages').querySelector(`[data-id="${selectedMsgId}"]`);
         const isLiked = targetMsg ? targetMsg.getAttribute('data-liked') === 'true' : false;
-        update(ref(db, `messages/${mode}/${selectedMsgId}`), { liked: !isLiked }); hideMenu();
+        update(ref(db, `messages/${mode}/${selectedMsgId}`), { liked: !isLiked });
     });
 
     safeListen('reply-close-btn', 'click', cancelReply);
@@ -873,10 +914,15 @@ const login = async () => {
     safeListen('login-submit-btn', 'click', login);
     safeListen('auth-notifications-btn', 'click', requestNotificationPermission);
     
+    // ПРАВИЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ДАННЫХ ПРИ ОТКРЫТИИ МОДАЛКИ (БЕЗ СБРОСОВ)
     safeListen('my-profile-trigger', 'click', () => {
         if ($('modal-display-name-input')) $('modal-display-name-input').value = displayName; 
         if ($('modal-username-input')) $('modal-username-input').value = user;
-        if ($('modal-preview')) $('modal-preview').src = avatar; 
+        if ($('modal-preview')) {
+            $('modal-preview').src = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`; 
+            $('modal-preview').style.display = 'block';
+        }
+        if ($('wallpaper-select')) $('wallpaper-select').value = store.get('tg_wallpaper') || 'classic';
         if ($('prof-modal')) $('prof-modal').style.display = 'flex';
     });
     safeListen('modal-save-btn', 'click', saveProfile); 
@@ -903,7 +949,7 @@ const login = async () => {
         const card = e.target.closest('.contact'); 
         if (card) openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), card.getAttribute('data-avatar'));
     });
-
+  // АВТОМАТИЧЕСКИЙ ВХОД В АККАУНТ ИЗ СЕССИИ С ПРОВЕРКОЙ БАЗЫ ДАННЫХ
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
@@ -911,9 +957,10 @@ const login = async () => {
             if (isNetworkOnline) {
                 const snap = await get(ref(db, `users/${sU}`));
                 if (snap.exists() && snap.val().password === sP) {
-                    displayName = snap.val().displayName || sU.replace('@', ''); avatar = snap.val().avatar;
+                    displayName = snap.val().displayName || sU.replace('@', ''); 
+                    avatar = snap.val().avatar;
                     if ($('my-name')) $('my-name').innerText = displayName;
-                    if ($('my-avatar')) $('my-avatar').src = avatar;
+                    if ($('my-avatar') && avatar) $('my-avatar').src = avatar;
                 } else { store.clear(); location.reload(); }
             }
         }
