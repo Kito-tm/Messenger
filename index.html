@@ -403,3 +403,108 @@
         if (mode === 'global') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000);
     };
+    function initApp() {
+        $('login-screen').style.display = 'none';
+        $('my-name').innerText = displayName; $('my-usertag').innerText = user; $('my-avatar').src = avatar;
+        
+        const userRef = ref(db, `users/${user}`); update(userRef, { online: true });
+        onDisconnect(userRef).update({ online: false });
+
+        onValue(ref(db, 'users'), (snap) => {
+            unreadUnsubs.forEach(unsub => unsub()); unreadUnsubs = []; let h = '';
+            snap.forEach((c) => {
+                const u = c.val(); 
+                if (u.username && u.username !== user) {
+                    const cId = [user, u.username].sort().join('_'); const dName = u.displayName || u.username.replace('@', '');
+                    h += `<div class="contact" id="c-${u.username.replace('@','')}" data-nick="${u.username}" data-dname="${dName}">
+                        <img src="${u.avatar}">
+                        <div class="dot" id="dot-${u.username.replace('@','')}"></div>
+                        <div class="c-info">
+                            <div class="c-name">${dName}</div>
+                            <div class="c-tag">${u.username}</div>
+                            <div class="c-status" id="st-${u.username.replace('@','')}">был(а) недавно</div>
+                        </div>
+                        <div class="badge" id="bad-${u.username.replace('@','')}" style="display:none;">0</div>
+                    </div>`;
+
+                    setTimeout(() => {
+                        const sEl = $(`st-${u.username.replace('@','')}`); const dEl = $(`dot-${u.username.replace('@','')}`);
+                        onValue(ref(db, `users/${u.username}/online`), (osnap) => {
+                            const isOnline = osnap.val() === true; dEl.className = `dot ${isOnline?'on':''}`;
+                            if(sEl.className !== 'c-status typing') { sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`; }
+                        });
+                        onValue(ref(db, `typing/${cId}/${u.username}`), (tsnap) => {
+                            if(tsnap.val() === true) { sEl.innerText = 'печатает...'; sEl.className = 'c-status typing'; } 
+                            else {
+                                get(ref(db, `users/${u.username}/online`)).then((osnap)=>{
+                                    const isOnline = osnap.val() === true; sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`;
+                                });
+                            }
+                        });
+
+                        let firstLoad = true;
+                        const unsubUnread = onValue(ref(db, `messages/${cId}`), (msnap) => {
+                            let count = 0, lastMsg = null;
+                            msnap.forEach((m) => { const md = m.val(); if(md.sender !== user) { if(!md.read) count++; lastMsg = md; } });
+                            const bEl = $(`bad-${u.username.replace('@','')}`);
+                            if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; }
+                            if(!firstLoad && lastMsg && !lastMsg.read && mode !== cId) { pushNotify(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar); }
+                            firstLoad = false;
+                        });
+                        unreadUnsubs.push(unsubUnread);
+                    }, 50);
+                }
+            });
+            $('user-list').innerHTML = h;
+        });
+
+        let fG = true, cG = 0;
+        onValue(ref(db, 'messages/global'), (snap) => {
+            if (!fG && snap.size > cG && mode !== 'global') {
+                $('g-unread').style.display = 'inline'; let lastM = [...Object.values(snap.val())].pop();
+                if(lastM && lastM.sender !== user) { pushNotify("🌍 Общий чат", `${lastM.senderName}: ${lastM.text}`); }
+            }
+            cG = snap.size; fG = false;
+        });
+        if (window.innerWidth > 768) openChat('global');
+    }
+
+    $('avatar-file').addEventListener('change', (e) => processAv(e, 'login-preview'));
+    $('modal-avatar-file').addEventListener('change', (e) => processAv(e, 'modal-preview'));
+    $('login-submit-btn').addEventListener('click', login);
+    $('my-profile-trigger').addEventListener('click', () => {
+        $('modal-display-name-input').value = displayName; $('modal-username-input').value = user;
+        $('modal-preview').src = avatar; $('prof-modal').style.display = 'flex';
+    });
+    $('modal-save-btn').addEventListener('click', saveProfile); $('modal-logout-btn').addEventListener('click', logout);
+    $('modal-cancel-btn').addEventListener('click', () => $('prof-modal').style.display = 'none');
+    $('global-chat-tab').addEventListener('click', () => openChat('global'));
+    $('back-btn').addEventListener('click', () => $('sidebar').classList.remove('hidden'));
+    $('send-btn').addEventListener('click', send); $('message-input').addEventListener('input', handleTyping);
+    $('message-input').addEventListener('keypress', (e) => { if(e.key==='Enter') send(); });
+    
+    $('user-list').addEventListener('click', (e) => {
+        const card = e.target.closest('.contact'); if (card) openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'));
+    });
+
+    $('messages').addEventListener('click', (e) => {
+        const msgEl = e.target.closest('.msg'); if (!msgEl) return; const now = Date.now();
+        if (now - lastTap < 300) {
+            const msgId = msgEl.getAttribute('data-id'); const isLiked = msgEl.getAttribute('data-liked') === 'true';
+            update(ref(db, `messages/${mode}/${msgId}`), { liked: !isLiked });
+        }
+        lastTap = now;
+    });
+
+    (async () => {
+        const sU = store.get('c_nk'), sP = store.get('c_pv');
+        if (sU && sP) {
+            const snap = await get(ref(db, `users/${sU}`));
+            if (snap.exists() && snap.val().password === sP) {
+                user = sU; displayName = snap.val().displayName || sU.replace('@', ''); avatar = snap.val().avatar; initApp();
+            } else { store.clear(); }
+        }
+    })();
+</script>
+</body>
+</html>
