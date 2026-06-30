@@ -15,8 +15,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         body { display: flex; height: 100dvh; background: #eef2f5; overflow: hidden; }
         
-        #login-screen, #prof-modal { position: fixed; inset: 0; background: #f4f6f9; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        #prof-modal { display: none; background: rgba(0,0,0,0.5); }
+        #login-screen, #prof-modal, #forward-modal { position: fixed; inset: 0; background: #f4f6f9; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        #prof-modal, #forward-modal { display: none; background: rgba(0,0,0,0.5); }
         .box { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 90%; max-width: 340px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; outline: none; }
@@ -33,7 +33,12 @@
         .my-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: #eee; margin-right: 10px; }
         .gear-btn { background: none; color: #248bcf; border: none; font-size: 22px; cursor: pointer; width: auto; margin: 0; padding: 5px; }
         
-        #global-chat-tab { padding: 15px; background: #f9f9f9; border-bottom: 3px solid #f4f6f9; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; }
+        /* БЛОК ПОИСКА С ЛУПОЙ */
+        .search-container { padding: 10px 15px; background: #f4f6f9; border-bottom: 1px solid #ddd; display: flex; gap: 8px; }
+        .search-box { position: relative; flex: 1; }
+        .search-box input { margin: 0; padding: 8px 12px 8px 34px; font-size: 14px; background: #fff; }
+        .search-box::before { content: "🔍"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #888; }
+        
         #user-list { flex: 1; overflow-y: auto; }
         
         .contact { display: flex; align-items: center; padding: 12px; cursor: pointer; border-bottom: 1px solid #fafdff; position: relative; user-select: none; }
@@ -52,27 +57,41 @@
         #chat-area { flex: 1; display: flex; flex-direction: column; background: #f4f6f9; height: 100%; min-width: 0; }
         #chat-header { padding: 10px 15px; background: #fff; border-bottom: 1px solid #ddd; font-weight: bold; display: flex; align-items: center; min-height: 60px; }
         #back-btn { display: none; background: none; color: #248bcf; border: none; font-size: 22px; margin-right: 12px; cursor: pointer; width: auto; }
-        
-        /* СТИЛИ ДЛЯ АВАТАРКИ В ШАПКЕ ЧАТА */
         .chat-hdr-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; display: none; background: #eee; border: 1px solid #ddd; }
         
         #chat-title { font-weight: bold; }
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: #f0f4f7; }
         
         .dt-sep { align-self: center; background: rgba(120,135,145,0.4); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 10px; margin: 10px 0; font-weight: 500; }
+        
+        /* СТИЛИ СООБЩЕНИЙ С ОТВЕТАМИ И ФОРВАРДОМ */
         .msg { padding: 8px 14px; border-radius: 14px; margin-bottom: 14px; max-width: 75%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.05); position: relative; user-select: none; }
         .msg.me { align-self: flex-end; background: #eff7ff; border-bottom-right-radius: 4px; }
         .msg.them { align-self: flex-start; background: #fff; border-bottom-left-radius: 4px; }
-        .msg-sender { font-size: 12px; color: #248bcf; font-weight: bold; margin-bottom: 2px; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 11px; color: #99a5b0; margin-top: 2px; align-self: flex-end; }
         .msg.me .msg-meta { color: #7cb0d4; }
         .ticks { margin-left: 4px; font-weight: bold; }
         
-        .msg-heart { position: absolute; bottom: -10px; right: 10px; background: white; border: 1px solid #e1e6eb; border-radius: 10px; padding: 1px 4px; font-size: 11px; display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.08); animation: pop 0.2s ease-out; }
+        /* Стили плашек ответов и пересылок внутри облачка */
+        .reply-sub-block { border-left: 3px solid #248bcf; padding-left: 6px; margin-bottom: 5px; font-size: 13px; color: #555; background: rgba(0,0,0,0.03); border-radius: 2px; padding: 3px 6px; }
+        .reply-sub-sender { font-weight: bold; color: #248bcf; font-size: 12px; }
+        .fwd-sub-title { font-style: italic; font-size: 11px; color: #778491; margin-bottom: 2px; }
+        
+        .msg-heart { position: absolute; bottom: -10px; right: 10px; background: white; border: 1px solid #e1e6eb; border-radius: 10px; padding: 1px 4px; font-size: 11px; display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        
+        /* ПАНЕЛЬ ПРЕДПРОСМОТРА ОТВЕТА СВЕРХУ ПОЛЯ ВВОДА */
+        #reply-preview-bar { display: none; background: #fff; border-top: 1px solid #ddd; padding: 8px 15px; align-items: center; justify-content: space-between; border-left: 4px solid #248bcf; }
+        #reply-preview-text { font-size: 13px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; margin-right: 10px; }
+        #reply-close-btn { background: none; border: none; color: #888; font-size: 16px; cursor: pointer; width: auto; font-weight: bold; }
         
         #input-area { display: flex; padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #ddd; }
         #message-input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ddd; outline: none; font-size: 16px; }
         #send-btn { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; padding: 0; margin-top: 0; }
+        
+        /* КОНТЕКСТНОЕ МЕНЮ */
+        #context-menu { position: fixed; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: none; flex-direction: column; z-index: 10005; min-width: 140px; overflow: hidden; }
+        .context-item { padding: 12px 16px; font-size: 15px; color: #333; cursor: pointer; text-align: left; user-select: none; }
+        .context-item:hover { background: #f4f6f9; }
         
         #toast-notification { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 360px; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; align-items: center; z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; border-left: 4px solid #248bcf; }
         #toast-notification.show { top: calc(12px + env(safe-area-inset-top)); }
@@ -81,6 +100,9 @@
         #toast-title { font-weight: bold; font-size: 14px; color: #222; }
         #toast-text { font-size: 13px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 
+        .fwd-list-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; text-align: left; }
+        .fwd-list-item img { width: 36px; height: 36px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
+
         @media (max-width: 768px) {
             #sidebar { width: 100%; position: absolute; inset: 0; z-index: 10; }
             #sidebar.hidden { display: none; }
@@ -88,7 +110,6 @@
             #back-btn { display: block; }
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -98,6 +119,20 @@
     <div id="toast-content">
         <div id="toast-title"></div>
         <div id="toast-text"></div>
+    </div>
+</div>
+
+<div id="context-menu">
+    <div class="context-item" id="ctx-reply">↩️ Ответить</div>
+    <div class="context-item" id="ctx-forward">↪️ Переслать</div>
+    <div class="context-item" id="ctx-like">❤️ Лайкнуть</div>
+</div>
+
+<div id="forward-modal">
+    <div class="box" style="max-height: 80vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom:10px;">Переслать сообщение</h3>
+        <div id="forward-chats-list" style="flex:1; overflow-y:auto; margin-bottom:15px;"></div>
+        <button id="forward-cancel-btn" style="background:#bbb;">Отмена</button>
     </div>
 </div>
 
@@ -112,7 +147,6 @@
         <button id="login-submit-btn">Войти / Создать</button>
     </div>
 </div>
-
 <div id="prof-modal">
     <div class="box">
         <h2>Настройки профиля</h2>
@@ -120,9 +154,7 @@
         <label class="file-lbl">Изменить фото<input type="file" id="modal-avatar-file" accept="image/*" style="display:none;"></label>
         <input type="text" id="modal-display-name-input" placeholder="Отображаемое имя">
         <input type="text" id="modal-username-input" placeholder="@username">
-        
         <button id="auth-notifications-btn" style="background:#31b545; margin-bottom:10px;">🔔 Включить Push на телефоне</button>
-        
         <button id="modal-save-btn">Сохранить</button>
         <button id="modal-logout-btn" style="background:#e55050;">Выйти из аккаунта</button>
         <button id="modal-cancel-btn" style="background:#bbb;">Отмена</button>
@@ -140,32 +172,41 @@
         </div>
         <button class="gear-btn" id="my-profile-trigger">⚙️</button>
     </div>
-    <div id="global-chat-tab">🌍 Общий чат <span id="g-unread" style="color:#31b545; display:none;">•</span></div>
+    
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="search-user-input" placeholder="Поиск точного @username...">
+        </div>
+    </div>
+    
     <div id="user-list"></div>
 </div>
 
 <div id="chat-area">
     <div id="chat-header">
         <button id="back-btn">⬅</button>
-        
         <img id="chat-avatar" class="chat-hdr-avatar" src="">
-        
         <div style="display:flex; flex-direction:column; min-width:0;">
             <span id="chat-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#222;">Выберите чат</span>
             <span id="chat-subtitle" style="font-size:12px; color:#888; font-weight:normal; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
         </div>
     </div>
     <div id="messages"></div>
+    
+    <div id="reply-preview-bar">
+        <div id="reply-preview-text">Ответ пользователю</div>
+        <button id="reply-close-btn">✕</button>
+    </div>
+
     <div id="input-area">
         <input type="text" id="message-input" placeholder="Напишите сообщение...">
         <button id="send-btn">▶</button>
     </div>
 </div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
-
-    window.addEventListener('error', (e) => console.log("Перехваченная ошибка: " + e.message));
 
     const store = {
         set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) { window['m_'+k] = v; } },
@@ -185,16 +226,21 @@
 
     const db = getDatabase(initializeApp(firebaseConfig));
     let user = null, displayName = null, avatar = null, mode = 'sidebar', lastList = null;
-    let activeChat = null; 
-    let isWindowFocused = true; 
-    let unreadUnsubs = [], typingTimeout = null, lastTap = 0, hTypingUnsub = null, hOnlineUnsub = null, toastTimeout = null;
+    let activeChat = null, activeChatName = '', activeChatAvatar = ''; 
+    let isWindowFocused = true, knownUsers = {}; 
+    let unreadUnsubs = [], typingTimeout = null, hTypingUnsub = null, hOnlineUnsub = null, toastTimeout = null;
+    
+    // Переменные для ответов и контекстного меню
+    let selectedMsgId = null, selectedMsgText = null, selectedMsgSenderName = null;
+    let replyToId = null, replyToText = null, replyToSenderName = null;
+    let pressTimer = null;
 
     const $ = id => document.getElementById(id);
     const safeListen = (id, event, fn) => { const el = $(id); if (el) el.addEventListener(event, fn); };
 
     window.addEventListener('focus', () => { 
         isWindowFocused = true; 
-        if (activeChat && activeChat !== 'global' && mode !== 'sidebar') {
+        if (activeChat && mode !== 'sidebar') {
             get(ref(db, `messages/${mode}`)).then(snap => {
                 snap.forEach(c => {
                     const d = c.val(); if (d.sender !== user && !d.read) update(ref(db, `messages/${mode}/${c.key}`), { read: true });
@@ -207,30 +253,42 @@
     const requestNotificationPermission = () => {
         if ('Notification' in window && window.Notification) {
             window.Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                    alert('Отлично! Системные уведомления успешно включены.');
-                    if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
-                } else if (permission === 'denied') {
-                    alert('Доступ заблокирован. Проверьте настройки уведомлений телефона.');
-                }
+                if (permission === 'granted') alert('Системные уведомления успешно включены.');
             });
-        } else {
-            alert('На iPhone пуш-уведомления работают только через домашний экран!\n\nИнструкция:\n1. Нажмите внизу кнопку «Поделиться».\n2. Выберите «На экран "Домой"».\n3. Запустите иконку с экрана и активируйте пуши там!');
         }
     };
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log('Service Worker готов.'))
-            .catch(err => console.log('Ошибка SW:', err));
+        navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
     }
 
     const send = () => {
         const txt = $('message-input') ? $('message-input').value.trim() : ''; 
         if (!txt) return;
-        push(ref(db, `messages/${mode}`), { sender: user, senderName: displayName, text: txt, timestamp: Date.now(), read: false });
+        
+        const msgData = {
+            sender: user,
+            senderName: displayName,
+            text: txt,
+            timestamp: Date.now(),
+            read: false
+        };
+
+        if (replyToId) {
+            msgData.replyToId = replyToId;
+            msgData.replyToText = replyToText;
+            msgData.replyToSenderName = replyToSenderName;
+        }
+
+        push(ref(db, `messages/${mode}`), msgData);
         if ($('message-input')) $('message-input').value = ''; 
         set(ref(db, `typing/${mode}/${user}`), null);
+        cancelReply();
+    };
+
+    const cancelReply = () => {
+        replyToId = null; replyToText = null; replyToSenderName = null;
+        if ($('reply-preview-bar')) $('reply-preview-bar').style.display = 'none';
     };
 
     const playChime = () => {
@@ -243,64 +301,27 @@
             gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
             osc1.connect(gain1); gain1.connect(ctx.destination);
             osc1.start(); osc1.stop(ctx.currentTime + 0.12);
-            setTimeout(() => {
-                const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
-                osc2.type = 'sine'; osc2.frequency.setValueAtTime(880, ctx.currentTime);
-                gain2.gain.setValueAtTime(0.08, ctx.currentTime);
-                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-                osc2.connect(gain2); gain2.connect(ctx.destination);
-                osc2.start(); osc2.stop(ctx.currentTime + 0.22);
-            }, 75);
         } catch (e) {}
-    };
-
-    const sendSystemPush = (title, body, icon) => {
-        try {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, {
-                        body: body,
-                        icon: icon || `https://ui-avatars.com/api/?name=${title}&background=random`,
-                        badge: icon || '',
-                        vibrate: [150, 50, 150],
-                        tag: title, 
-                        renotify: true
-                    });
-                }).catch(() => fallbackNotification(title, body, icon));
-            } else {
-                fallbackNotification(title, body, icon);
-            }
-        } catch (e) {}
-    };
-
-    const fallbackNotification = (title, body, icon) => {
-        if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
-            new window.Notification(title, { body: body, icon: icon || '' });
-        }
     };
 
     const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
-        if ('vibrate' in navigator) navigator.vibrate([150]);
         if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
-
         $('toast-img').src = av || `https://ui-avatars.com/api/?name=${title}&background=random`;
         $('toast-title').innerText = title;
         $('toast-text').innerText = text;
-        
         const toast = $('toast-notification');
         toast.onclick = () => {
             toast.classList.remove('show');
-            if (targetNick) { openChat(targetNick, targetName, av); } else { openChat('global'); }
+            if (targetNick) openChat(targetNick, targetName, av);
         };
-        
         toast.classList.add('show');
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     };
 
     const processIncomingNotification = (title, text, av, targetNick, targetName) => {
-        sendSystemPush(title, text, av);
+        if ('vibrate' in navigator) navigator.vibrate([150]);
         displayToastNotification(title, text, av, targetNick, targetName);
     };
 
@@ -343,86 +364,82 @@
         let newDN = $('modal-display-name-input').value.trim(); let newUN = $('modal-username-input').value.trim();
         if (!newDN || !newUN) return alert("Заполните поля!");
         if (!newUN.startsWith('@')) newUN = '@' + newUN; newUN = newUN.replace(/[.#$\[\]]/g, '');
-
         const currentSnap = await get(ref(db, `users/${user}`)); const currentData = currentSnap.val() || {};
         if (newUN !== user) {
             const snap = await get(ref(db, `users/${newUN}`)); if (snap.exists()) return alert("Этот @username уже занят!");
             await set(ref(db, `users/${user}`), null); user = newUN; if (store.get('c_nk')) store.set('c_nk', user);
         }
-        displayName = newDN;
+        displayName = newDN; avatar = avatar || `https://ui-avatars.com/api/?name=${displayName}&background=random`;
         await set(ref(db, `users/${user}`), { username: user, displayName: displayName, avatar: avatar, password: currentData.password || store.get('c_pv'), online: true });
-        if ($('my-name')) $('my-name').innerText = displayName; 
-        if ($('my-usertag')) $('my-usertag').innerText = user; 
-        if ($('my-avatar')) $('my-avatar').src = avatar; 
-        if ($('prof-modal')) $('prof-modal').style.display = 'none';
+        location.reload();
     };
-
-    // ОБНОВЛЕННАЯ ФУНКЦИЯ ОТКРЫТИЯ ЧАТА ПРИНИМАЕТ ССЫЛКУ НА АВАТАРКУ
-    const openChat = (t, dName, avUrl) => {
-        if (t === 'global') { 
-            activeChat = 'global'; mode = 'global'; 
-            if ($('chat-avatar')) $('chat-avatar').style.display = 'none';
-        } else { 
-            activeChat = t; mode = [user, t].sort().join('_'); 
-            if ($('chat-avatar')) {
-                $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${dName}&background=random`;
-                $('chat-avatar').style.display = 'block';
-            }
-        }
+const openChat = (t, dName, avUrl) => {
+        activeChat = t; activeChatName = dName; activeChatAvatar = avUrl;
+        mode = [user, t].sort().join('_'); 
+        cancelReply();
         
-        if ($('chat-title')) $('chat-title').innerText = t === 'global' ? 'Общий чат' : dName;
-        if (t === 'global' && $('g-unread')) $('g-unread').style.display = 'none';
+        if ($('chat-avatar')) {
+            $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${dName}&background=random`;
+            $('chat-avatar').style.display = 'block';
+        }
+        if ($('chat-title')) $('chat-title').innerText = dName;
         if (window.innerWidth <= 768 && $('sidebar')) $('sidebar').classList.add('hidden');
 
         if (hTypingUnsub) hTypingUnsub(); if (hOnlineUnsub) hOnlineUnsub();
         const subEl = $('chat-subtitle');
         if (!subEl) { loadMsgs(t); return; }
 
-        if (t === 'global') {
-            subEl.innerText = 'публичный чат'; subEl.style.color = '#888'; subEl.className = '';
-        } else {
-            hOnlineUnsub = onValue(ref(db, `users/${t}/online`), (osnap) => {
-                if (!subEl.classList.contains('typing-h')) {
+        hOnlineUnsub = onValue(ref(db, `users/${t}/online`), (osnap) => {
+            if (!subEl.classList.contains('typing-h')) {
+                const isOnline = osnap.val() === true;
+                subEl.innerText = isOnline ? 'в сети' : 'был(а) недавно';
+                subEl.style.color = isOnline ? '#248bcf' : '#888';
+            }
+        });
+        hTypingUnsub = onValue(ref(db, `typing/${mode}/${t}`), (tsnap) => {
+            if (tsnap.val() === true) {
+                subEl.innerText = 'печатает...'; subEl.style.color = '#31b545'; subEl.classList.add('typing-h');
+            } else {
+                subEl.classList.remove('typing-h');
+                get(ref(db, `users/${t}/online`)).then(osnap => {
                     const isOnline = osnap.val() === true;
                     subEl.innerText = isOnline ? 'в сети' : 'был(а) недавно';
                     subEl.style.color = isOnline ? '#248bcf' : '#888';
-                }
-            });
-            hTypingUnsub = onValue(ref(db, `typing/${mode}/${t}`), (tsnap) => {
-                if (tsnap.val() === true) {
-                    subEl.innerText = 'печатает...'; subEl.style.color = '#31b545'; subEl.classList.add('typing-h');
-                } else {
-                    subEl.classList.remove('typing-h');
-                    get(ref(db, `users/${t}/online`)).then(osnap => {
-                        const isOnline = osnap.val() === true;
-                        subEl.innerText = isOnline ? 'в сети' : 'был(а) недавно';
-                        subEl.style.color = isOnline ? '#248bcf' : '#888';
-                    });
-                }
-            });
-        }
+                });
+            }
+        });
         loadMsgs(t);
     };
-const loadMsgs = (targetUser) => {
+
+    const loadMsgs = (targetUser) => {
         if (lastList) lastList();
         lastList = onValue(ref(db, `messages/${mode}`), (snap) => {
             let h = '', lastDt = '';
             snap.forEach((c) => {
                 const d = c.val(); const isMe = d.sender === user;
-                
-                if (!isMe && !d.read && mode !== 'global' && activeChat === targetUser && isWindowFocused) {
+                if (!isMe && !d.read && activeChat === targetUser && isWindowFocused) {
                     update(ref(db, `messages/${mode}/${c.key}`), { read: true });
                 }
-                
                 const currentDt = (d.timestamp) ? new Date(d.timestamp).toDateString() === new Date().toDateString() ? 'Сегодня' : new Date(d.timestamp).toLocaleDateString('ru', { day: 'numeric', month: 'short' }) : 'Сегодня';
                 if (currentDt !== lastDt) { h += `<div class="dt-sep">${currentDt}</div>`; lastDt = currentDt; }
                 
                 const timeStr = new Date(d.timestamp || Date.now()).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-                const ticks = (mode !== 'global' && isMe) ? (d.read ? ' ✓✓' : ' ✓') : '';
+                const ticks = isMe ? (d.read ? ' ✓✓' : ' ✓') : '';
                 const heart = d.liked ? `<div class="msg-heart">❤️</div>` : '';
 
-                h += `<div class="msg ${isMe?'me':'them'}" data-id="${c.key}" data-liked="${d.liked || false}">
-                    ${(!isMe && mode==='global') ? `<div class="msg-sender">${d.senderName || d.sender}</div>`:''}
+                // Отрисовка ответа или пересланного сообщения
+                let replyMarkup = '';
+                if (d.replyToId) {
+                    replyMarkup = `<div class="reply-sub-block">
+                        <div class="reply-sub-sender">${d.replyToSenderName}</div>
+                        <div>${d.replyToText}</div>
+                    </div>`;
+                } else if (d.fwdFrom) {
+                    replyMarkup = `<div class="fwd-sub-title">↪️ Переслано от ${d.fwdFrom}</div>`;
+                }
+
+                h += `<div class="msg ${isMe?'me':'them'}" data-id="${c.key}" data-text="${d.text}" data-sendername="${d.senderName || d.sender}" data-liked="${d.liked || false}">
+                    ${replyMarkup}
                     <div>${d.text}</div>
                     <div class="msg-meta"><span>${timeStr}</span><span class="ticks">${ticks}</span></div>
                     ${heart}
@@ -432,86 +449,212 @@ const loadMsgs = (targetUser) => {
         });
     };
 
-    const handleTyping = () => { if (mode === 'global' || mode === 'sidebar') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000); };
+    const handleTyping = () => { if (mode === 'sidebar') return; set(ref(db, `typing/${mode}/${user}`), true); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => set(ref(db, `typing/${mode}/${user}`), null), 2000); };
 
+    // ОТСЛЕДИВАНИЕ ИСТОРИИ И ПОКАЗ ТОЛЬКО ТЕХ, С КЕМ ЕСТЬ ЧАТ
     function initApp() {
         if ($('login-screen')) $('login-screen').style.display = 'none';
         if ($('my-name')) $('my-name').innerText = displayName; 
         if ($('my-usertag')) $('my-usertag').innerText = user; 
         if ($('my-avatar')) $('my-avatar').src = avatar;
-        
-        if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
-            if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
-        }
+        if ($('auth-notifications-btn') && 'Notification' in window && window.Notification.permission === 'granted') $('auth-notifications-btn').style.display = 'none';
 
         const userRef = ref(db, `users/${user}`); update(userRef, { online: true });
         onDisconnect(userRef).update({ online: false });
 
+        // Собираем всех пользователей один раз для быстрого доступа
         onValue(ref(db, 'users'), (snap) => {
-            unreadUnsubs.forEach(unsub => unsub()); unreadUnsubs = []; let h = '';
-            snap.forEach((c) => {
-                const u = c.val(); 
-                if (u.username && u.username !== user) {
-                    const cId = [user, u.username].sort().join('_'); const dName = u.displayName || u.username.replace('@', '');
-                    h += `<div class="contact" id="c-${u.username.replace('@','')}" data-nick="${u.username}" data-dname="${dName}">
-                        <img src="${u.avatar}">
-                        <div class="dot" id="dot-${u.username.replace('@','')}"></div>
-                        <div class="c-info">
-                            <div class="c-name">${dName}</div>
-                            <div class="c-tag">${u.username}</div>
-                            <div class="c-status" id="st-${u.username.replace('@','')}">был(а) недавно</div>
-                        </div>
-                        <div class="badge" id="bad-${u.username.replace('@','')}" style="display:none;">0</div>
-                    </div>`;
-
-                    setTimeout(() => {
-                        const sEl = $(`st-${u.username.replace('@','')}`); const dEl = $(`dot-${u.username.replace('@','')}`);
-                        onValue(ref(db, `users/${u.username}/online`), (osnap) => {
-                            const isOnline = osnap.val() === true; if (dEl) dEl.className = `dot ${isOnline?'on':''}`;
-                            if(sEl && sEl.className !== 'c-status typing') { sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`; }
-                        });
-                        onValue(ref(db, `typing/${cId}/${u.username}`), (tsnap) => {
-                            if(sEl && tsnap.val() === true) { sEl.innerText = 'печатает...'; sEl.className = 'c-status typing'; } 
-                            else if (sEl) {
-                                get(ref(db, `users/${u.username}/online`)).then((osnap)=>{
-                                    const isOnline = osnap.val() === true; sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`;
-                                });
-                            }
-                        });
-
-                        let firstLoad = true;
-                        const unsubUnread = onValue(ref(db, `messages/${cId}`), (msnap) => {
-                            let count = 0, lastMsg = null;
-                            msnap.forEach((m) => { const md = m.val(); if(md.sender !== user) { if(!md.read) count++; lastMsg = md; } });
-                            const bEl = $(`bad-${u.username.replace('@','')}`);
-                            if(bEl) { if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; } }
-                            
-                            if(!firstLoad && lastMsg && !lastMsg.read && (activeChat !== u.username || !isWindowFocused)) { 
-                                processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar, u.username, dName);
-                            }
-                            firstLoad = false;
-                        });
-                        unreadUnsubs.push(unsubUnread);
-                    }, 50);
-                }
-            });
-            if ($('user-list')) $('user-list').innerHTML = h;
+            snap.forEach(c => { const u = c.val(); if(u.username) knownUsers[u.username] = u; });
+            renderConversations();
         });
-
-        let fG = true, cG = 0;
-        onValue(ref(db, 'messages/global'), (snap) => {
-            if (!fG && snap.exists() && snap.size > cG && (activeChat !== 'global' || !isWindowFocused)) {
-                if ($('g-unread') && activeChat !== 'global') $('g-unread').style.display = 'inline'; 
-                let lastM = null; snap.forEach(child => { lastM = child.val(); });
-                if(lastM && lastM.sender !== user) { 
-                    processIncomingNotification("🌍 Общий чат", `${lastM.senderName || lastM.sender}: ${lastM.text}`, '', null, null);
-                }
-            }
-            cG = snap.exists() ? snap.size : 0; fG = false;
-        });
-        if (window.innerWidth > 768) openChat('global');
     }
 
+    // РЕНДЕР ИСТОРИИ ЧАТОВ (Только те, где есть хоть 1 сообщение)
+    function renderConversations() {
+        unreadUnsubs.forEach(unsub => unsub()); unreadUnsubs = [];
+        let h = '';
+        
+        Object.keys(knownUsers).forEach(username => {
+            if (username === user) return;
+            const cId = [user, username].sort().join('_');
+            const u = knownUsers[username];
+            const dName = u.displayName || username.replace('@', '');
+
+            // Проверяем наличие сообщений в комнате
+            let firstLoad = true;
+            const unsubUnread = onValue(ref(db, `messages/${cId}`), (msnap) => {
+                const hasMsgs = msnap.exists();
+                let contactEl = $(`c-${username.replace('@','')}`);
+                
+                if (hasMsgs && !contactEl) {
+                    // Если сообщения появились, а контакта в списке нет — перерисовываем список
+                    renderConversations();
+                    return;
+                }
+
+                if (hasMsgs) {
+                    let count = 0, lastMsg = null;
+                    msnap.forEach((m) => { const md = m.val(); if(md.sender !== user) { if(!md.read) count++; lastMsg = md; } });
+                    const bEl = $(`bad-${username.replace('@','')}`);
+                    if(bEl) { if(count > 0) { bEl.innerText = count; bEl.style.display = 'block'; } else { bEl.style.display = 'none'; } }
+                    
+                    if(!firstLoad && lastMsg && !lastMsg.read && (activeChat !== username || !isWindowFocused)) { 
+                        processIncomingNotification(lastMsg.senderName || lastMsg.sender, lastMsg.text, u.avatar, username, dName);
+                    }
+                }
+                firstLoad = false;
+            });
+            unreadUnsubs.push(unsubUnread);
+
+            // Рендерим только если есть сообщения
+            get(ref(db, `messages/${cId}`)).then(snapshot => {
+                if(snapshot.exists()) {
+                    if ($(`c-${username.replace('@','')}`)) return; // Уже отрисован
+                    
+                    const itemHtml = `<div class="contact" id="c-${username.replace('@','')}" data-nick="${username}" data-dname="${dName}">
+                        <img src="${u.avatar}">
+                        <div class="dot" id="dot-${username.replace('@','')}"></div>
+                        <div class="c-info">
+                            <div class="c-name">${dName}</div>
+                            <div class="c-tag">${username}</div>
+                            <div class="c-status" id="st-${username.replace('@','')}">был(а) недавно</div>
+                        </div>
+                        <div class="badge" id="bad-${username.replace('@','')}" style="display:none;">0</div>
+                    </div>`;
+                    
+                    if ($('user-list')) $('user-list').insertAdjacentHTML('beforeend', itemHtml);
+                    
+                    // Подключаем мини-слушатели онлайна и тайпинга
+                    const sEl = $(`st-${username.replace('@','')}`); const dEl = $(`dot-${username.replace('@','')}`);
+                    onValue(ref(db, `users/${username}/online`), (osnap) => {
+                        const isOnline = osnap.val() === true; if (dEl) dEl.className = `dot ${isOnline?'on':''}`;
+                        if(sEl && sEl.className !== 'c-status typing') { sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`; }
+                    });
+                    onValue(ref(db, `typing/${cId}/${username}`), (tsnap) => {
+                        if(sEl && tsnap.val() === true) { sEl.innerText = 'печатает...'; sEl.className = 'c-status typing'; } 
+                        else if (sEl) {
+                            get(ref(db, `users/${username}/online`)).then((osnap)=>{
+                                const isOnline = osnap.val() === true; sEl.innerText = isOnline ? 'в сети' : 'был(а) недавно'; sEl.className = `c-status ${isOnline?'on':''}`;
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    // ПОИСК ПО ТОЧНОМУ USERNAME С ЛУПОЙ
+    safeListen('search-user-input', 'input', async (e) => {
+        let val = e.target.value.trim();
+        if(!val) { $('user-list').innerHTML = ''; renderConversations(); return; }
+        if(!val.startsWith('@')) val = '@' + val;
+        
+        const snap = await get(ref(db, `users/${val}`));
+        if(snap.exists() && val !== user) {
+            const u = snap.val();
+            const dName = u.displayName || val.replace('@', '');
+            $('user-list').innerHTML = `<div class="contact" data-nick="${u.username}" data-dname="${dName}">
+                <img src="${u.avatar}">
+                <div class="c-info">
+                    <div class="c-name">${dName} (Найден)</div>
+                    <div class="c-tag">${u.username}</div>
+                </div>
+            </div>`;
+        } else {
+            $('user-list').innerHTML = `<div style="padding:15px; text-align:center; color:#888; font-size:14px;">Пользователь не найден</div>`;
+        }
+    });
+
+    // ОБРАБОТКА КОНТЕКСТНОГО МЕНЮ (ОТВЕТИТЬ, ПЕРЕСЛАТЬ, ЛАЙК)
+    const showMenu = (x, y, msgEl) => {
+        selectedMsgId = msgEl.getAttribute('data-id');
+        selectedMsgText = msgEl.getAttribute('data-text');
+        selectedMsgSenderName = msgEl.getAttribute('data-sendername');
+        
+        const menu = $('context-menu');
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.style.display = 'flex';
+    };
+
+    const hideMenu = () => { if ($('context-menu')) $('context-menu').style.display = 'none'; };
+    document.addEventListener('click', hideMenu);
+
+    // Долгий тап на мобилках / Правый клик на ПК
+    safeListen('messages', 'contextmenu', (e) => {
+        const msgEl = e.target.closest('.msg');
+        if (!msgEl) return;
+        e.preventDefault();
+        showMenu(e.clientX, e.clientY, msgEl);
+    });
+
+    safeListen('messages', 'touchstart', (e) => {
+        const msgEl = e.target.closest('.msg');
+        if (!msgEl) return;
+        pressTimer = setTimeout(() => {
+            const touch = e.touches[0];
+            showMenu(touch.clientX, touch.clientY, msgEl);
+        }, 600);
+    });
+    safeListen('messages', 'touchend', () => clearTimeout(pressTimer));
+
+    // Действие: Ответить
+    safeListen('ctx-reply', 'click', () => {
+        replyToId = selectedMsgId; replyToText = selectedMsgText; replyToSenderName = selectedMsgSenderName;
+        $('reply-preview-text').innerText = `Ответ на сообщение от ${replyToSenderName}: "${replyToText}"`;
+        $('reply-preview-bar').style.display = 'flex';
+        hideMenu();
+        if ($('message-input')) $('message-input').focus();
+    });
+
+    // Действие: Переслать (Открытие окна со списком чатов)
+    safeListen('ctx-forward', 'click', () => {
+        hideMenu();
+        let listHtml = '';
+        Object.keys(knownUsers).forEach(username => {
+            if(username === user) return;
+            const u = knownUsers[username];
+            listHtml += `<div class="fwd-list-item" data-nick="${u.username}" data-dname="${u.displayName || username.replace('@','')}">
+                <img src="${u.avatar}">
+                <div>
+                    <div style="font-weight:bold;">${u.displayName || username.replace('@','')}</div>
+                    <div style="font-size:12px; color:#888;">${u.username}</div>
+                </div>
+            </div>`;
+        });
+        $('forward-chats-list').innerHTML = listHtml || '<div style="color:#888;font-size:14px;padding:10px;">Список чатов пуст</div>';
+        $('forward-modal').style.display = 'flex';
+    });
+
+    // Логика отправки пересланного сообщения при клике на получателя
+    safeListen('forward-chats-list', 'click', (e) => {
+        const item = e.target.closest('.fwd-list-item');
+        if(!item) return;
+        const targetNick = item.getAttribute('data-nick');
+        const targetRoom = [user, targetNick].sort().join('_');
+
+        push(ref(db, `messages/${targetRoom}`), {
+            sender: user,
+            senderName: displayName,
+            text: selectedMsgText,
+            timestamp: Date.now(),
+            read: false,
+            fwdFrom: selectedMsgSenderName
+        });
+
+        $('forward-modal').style.display = 'none';
+        alert('Сообщение успешно переслано!');
+        openChat(targetNick, item.getAttribute('data-dname'), knownUsers[targetNick].avatar);
+    });
+
+    safeListen('forward-cancel-btn', 'click', () => $('forward-modal').style.display = 'none');
+    safeListen('ctx-like', 'click', () => {
+        const isLiked = $('messages').querySelector(`[data-id="${selectedMsgId}"]`).getAttribute('data-liked') === 'true';
+        update(ref(db, `messages/${mode}/${selectedMsgId}`), { liked: !isLiked });
+        hideMenu();
+    });
+
+    safeListen('reply-close-btn', 'click', cancelReply);
     safeListen('avatar-file', 'change', (e) => processAv(e, 'login-preview'));
     safeListen('modal-avatar-file', 'change', (e) => processAv(e, 'modal-preview'));
     safeListen('login-submit-btn', 'click', login);
@@ -525,7 +668,6 @@ const loadMsgs = (targetUser) => {
     safeListen('modal-save-btn', 'click', saveProfile); 
     safeListen('modal-logout-btn', 'click', logout);
     safeListen('modal-cancel-btn', 'click', () => { if ($('prof-modal')) $('prof-modal').style.display = 'none'; });
-    safeListen('global-chat-tab', 'click', () => openChat('global'));
     
     safeListen('back-btn', 'click', () => { 
         if ($('sidebar')) $('sidebar').classList.remove('hidden'); 
@@ -535,29 +677,20 @@ const loadMsgs = (targetUser) => {
         if ($('chat-subtitle')) $('chat-subtitle').innerText = '';
         if ($('chat-avatar')) $('chat-avatar').style.display = 'none';
         if ($('messages')) $('messages').innerHTML = '';
+        $('search-user-input').value = '';
+        renderConversations();
     });
     
     safeListen('send-btn', 'click', send); 
     safeListen('message-input', 'input', handleTyping);
     safeListen('message-input', 'keypress', (e) => { if(e.key==='Enter') send(); });
     
-    // ПРИ КЛИКЕ НА КОНТАКТ ИЗВЛЕКАЕМ ЕГО АВАТАРКУ И ПЕРЕДАЕМ В OPENCHAT
     safeListen('user-list', 'click', (e) => {
         const card = e.target.closest('.contact'); 
         if (card) {
             const imgEl = card.querySelector('img');
-            const imgUrl = imgEl ? imgEl.src : '';
-            openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), imgUrl);
+            openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), imgEl ? imgEl.src : '');
         }
-    });
-
-    safeListen('messages', 'click', (e) => {
-        const msgEl = e.target.closest('.msg'); if (!msgEl) return; const now = Date.now();
-        if (now - lastTap < 300) {
-            const msgId = msgEl.getAttribute('data-id'); const isLiked = msgEl.getAttribute('data-liked') === 'true';
-            update(ref(db, `messages/${mode}/${msgId}`), { liked: !isLiked });
-        }
-        lastTap = now;
     });
 
     (async () => {
