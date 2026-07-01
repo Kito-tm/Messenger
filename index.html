@@ -1,41 +1,135 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Media Chat</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Kitogram</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Kitogram">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=K&background=248bcf&color=fff&size=180">
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="auth-container" class="auth-wrapper">
-        <div class="auth-card">
-            <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: #248bcf; margin-bottom: 15px;"></i>
-            <h2>Вход в чат</h2>
-            <input type="text" id="username-input" placeholder="Введите ваш никнейм">
-            <button id="login-btn">Войти анонимно</button>
+    <div id="login-screen">
+        <div class="box">
+            <h2 style="margin-bottom:15px;">Вход / Регистрация</h2>
+            <img id="login-preview" class="preview-avatar" src="">
+            <label class="file-lbl">Выбрать фото (опционально)<input type="file" id="avatar-file" accept="image/*" style="display:none;"></label>
+            <input type="text" id="username-input" placeholder="@username">
+            <input type="password" id="password-input" placeholder="Пароль">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px; font-size:14px; color:#7f8c8d;">
+                <input type="checkbox" id="remember-me" checked style="width:auto; margin:0;">
+                <label for="remember-me" style="cursor:pointer; user-select:none;">Запомнить меня</label>
+            </div>
+            <button id="login-btn">Войти / Создать</button>
         </div>
     </div>
 
-    <div id="chat-container" class="chat-wrapper hidden">
-        <div class="chat-header">
-            <h3>Media Chat Room</h3>
-            <button id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
+    <div id="app-container" class="hidden">
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <div class="burger" id="burger-menu-btn">☰</div>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Поиск пользователей/групп...">
+                </div>
+            </div>
+            <div id="chats-list"></div>
         </div>
 
-        <video id="camera-preview" autoplay muted playsinline style="display: none;"></video>
+        <div id="chat-window">
+            <div id="chat-header">
+                <div class="back-btn" id="back-to-sidebar">←</div>
+                <img id="active-chat-avatar" class="chat-hdr-avatar" src="" style="display:none;">
+                <div class="chat-hdr-info">
+                    <div id="active-chat-title">Выберите чат</div>
+                    <div id="active-chat-status" class="status-offline"></div>
+                </div>
+                <div class="header-actions" id="chat-actions-btn" style="display:none;">⋮</div>
+            </div>
+            <div id="messages">
+                <div class="welcome-notif">Выберите, кому хотели бы написать, или создайте группу</div>
+            </div>
+            <div id="typing-indicator"></div>
+            <form id="message-form" style="display:none;">
+                <button type="button" id="attach-btn"><i class="fa-solid fa-paperclip"></i></button>
+                <input type="file" id="file-input" accept="image/*" style="display:none;">
+                <input type="text" id="message-input" placeholder="Напишите сообщение..." autocomplete="off">
+                <button type="button" id="action-btn"><i class="fa-solid fa-microphone"></i></button>
+            </form>
+        </div>
+    </div>
 
-        <div id="messages" class="messages-box"></div>
+    <div id="burger-menu" class="modal-overlay">
+        <div class="burger-content">
+            <div class="burger-header">
+                <img id="burger-my-avatar" src="" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #5288c1;">
+                <div style="margin-top:10px; font-weight:bold; id="burger-my-name"">Имя</div>
+                <div id="burger-my-username" style="font-size:13px; color:#7f8c8d;">@username</div>
+            </div>
+            <div class="burger-item" id="menu-profile"><i class="fa-solid fa-user"></i> Мой профиль</div>
+            <div class="burger-item" id="menu-create-group"><i class="fa-solid fa-users"></i> Создать группу</div>
+            <div class="burger-item" id="menu-logout" style="color:#ef5350;"><i class="fa-solid fa-right-from-bracket"></i> Выйти</div>
+        </div>
+    </div>
 
-        <form id="message-form" class="input-panel">
-            <button type="button" id="attach-btn"><i class="fa-solid fa-paperclip"></i></button>
-            <input type="file" id="file-input" accept="image/*" style="display: none;">
-            
-            <input type="text" id="message-input" placeholder="Напишите сообщение..." autocomplete="off">
-            
-            <button type="button" id="action-btn"><i class="fa-solid fa-microphone"></i></button>
-        </form>
+    <div id="profile-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Редактировать профиль</h3>
+            <img id="modal-avatar-preview" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:10px auto; display:block; cursor:pointer;">
+            <input type="file" id="modal-avatar-file" accept="image/*" style="display:none;">
+            <input type="text" id="modal-display-name-input" placeholder="Отображаемое имя">
+            <div style="margin:10px 0; font-size:14px; text-align:left;">
+                <label>Цвет имени в чате:</label>
+                <input type="color" id="modal-color-input" style="width:100%; height:40px; padding:0; cursor:pointer; margin-top:5px;">
+            </div>
+            <div class="modal-buttons">
+                <button id="profile-cancel-btn" style="background:#34495e;">Отмена</button>
+                <button id="profile-save-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="group-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Создать группу</h3>
+            <img id="group-preview" style="width:70px; height:70px; border-radius:50%; object-fit:cover; margin:10px auto; display:none;">
+            <label class="file-lbl">Фото группы (опционально)<input type="file" id="group-avatar-file" accept="image/*" style="display:none;"></label>
+            <input type="text" id="group-name-input" placeholder="Название группы">
+            <div style="max-height:150px; overflow-y:auto; margin:10px 0; border:1px solid #242f3d; padding:5px; border-radius:4px;" id="group-members-list">
+                </div>
+            <div class="modal-buttons">
+                <button id="group-cancel-btn" style="background:#34495e;">Отмена</button>
+                <button id="group-create-submit-btn">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="members-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="members-modal-title">Участники группы</h3>
+            <div id="current-members-list" style="max-height:150px; overflow-y:auto; margin:10px 0; text-align:left;"></div>
+            <div id="add-member-zone" style="display:none; border-top:1px solid #242f3d; padding-top:10px; margin-top:10px;">
+                <h4 style="margin-bottom:5px; font-size:14px; color:#5288c1;">Добавить участников:</h4>
+                <div id="add-members-available" style="max-height:100px; overflow-y:auto; margin-bottom:10px;"></div>
+                <button id="add-member-submit-btn" style="width:100%; padding:8px;">Добавить выбранных</button>
+            </div>
+            <div class="modal-buttons">
+                <button id="members-close-btn" style="width:100%; background:#34495e;">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="context-menu">
+        <div class="context-item" id="ctx-reply">↩️ Ответить</div>
+        <div class="context-item" id="ctx-forward">➡️ Переслать</div>
+        <div class="context-item" id="ctx-like">❤️ Лайкнуть</div>
+        <div class="context-item" id="ctx-delete-me" style="color:#ef5350;">❌ Удалить у себя</div>
+        <div class="context-item" id="ctx-delete-all" style="color:#ef5350; font-weight:bold; display:none;">🔥 Удалить у всех</div>
     </div>
 
     <script type="module" src="app.js"></script>
