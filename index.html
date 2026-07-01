@@ -40,15 +40,43 @@
     <input type="file" id="file-input" accept="image/*" style="display: none;">
 </form>
 
-#message-form input[type="text"] {
+#message-form {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: var(--bg-sidebar);
+    border-top: 1px solid var(--border-color);
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-input);
+    flex: 1;
+    border-radius: 20px;
+    padding: 5px 10px;
+}
+
+#message-input {
     flex: 1;
     background: none;
     border: none;
     outline: none;
     color: var(--text-main);
-    font-size: 15px;
-    padding: 5px 0;
+    font-size: 16px;
+    padding: 8px 12px;
 }
+
+.icon-btn {
+    background: none;
+    border: none;
+    outline: none;
+    color: #5288c1;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
 
 .icon-btn {
     background: none;
