@@ -150,6 +150,17 @@
             #back-btn { display: block; }
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+/* Добавить в самый конец твоего блока <style> */
+.chat-image { max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 5px; display: block; }
+audio { margin-top: 5px; max-width: 100%; }
+.video-circle { width: 160px; height: 160px; border-radius: 50%; object-fit: cover; margin-top: 5px; background: #000; border: 2px solid #2b5278; }
+#action-btn.recording { color: #e53935; animation: pulse 1s infinite alternate; }
+#camera-preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; position: absolute; bottom: 70px; right: 15px; border: 3px solid #e53935; transform: scaleX(-1); background: #000; display: none; }
+
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+}
     </style>
 </head>
 <body>
@@ -347,12 +358,17 @@
         <div id="reply-preview-text">Ответ пользователю</div>
         <button id="reply-close-btn">✕</button>
     </div>
+<video id="camera-preview" autoplay muted playsinline></video>
 
-    <div id="input-area">
-        <input type="text" id="message-input" placeholder="Напишите сообщение...">
-        <button id="send-btn">▶</button>
-    </div>
-</div>
+    <form id="message-form" autocomplete="off">
+    
+    <button type="button" id="attach-btn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
+    <input type="file" id="file-input" accept="image/*" style="display: none;">
+
+    <input type="text" id="message-input" placeholder="Сообщение...">
+
+    <button type="button" id="action-btn" class="icon-btn"><i class="fa-solid fa-microphone"></i></button>
+</form>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
