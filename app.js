@@ -1,4 +1,6 @@
-// 1. Импорт необходимых модулей Firebase SDK (CDN-версии)
+// ==========================================
+// 1. ИМПОРТЫ FIREBASE SDK
+// ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { 
     getAuth, 
@@ -18,8 +20,9 @@ import {
     serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// 2. Конфигурация вашего проекта Firebase
-// Замените эти данные на ваши актуальные ключи из настроек Firebase Console!
+// ==========================================
+// 2. КОНФИГУРАЦИЯ FIREBASE
+// ==========================================
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_AUTH_DOMAIN",
@@ -29,12 +32,13 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
-// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// 3. Поиск элементов интерфейса в DOM
+// ==========================================
+// 3. ДОМ-ЭЛЕМЕНТЫ ИНТЕРФЕЙСА
+// ==========================================
 const authContainer = document.getElementById("auth-container");
 const chatContainer = document.getElementById("chat-container");
 const usernameInput = document.getElementById("username-input");
@@ -43,119 +47,131 @@ const logoutBtn = document.getElementById("logout-btn");
 const messagesDiv = document.getElementById("messages");
 const messageForm = document.getElementById("message-form");
 const messageInput = document.getElementById("message-input");
+const pushBtn = document.getElementById("push-btn"); // Кнопка "Включить уведомления", если она есть
 
 let currentUser = null;
 
-// 4. Отслеживание состояния авторизации пользователя
+// ==========================================
+// 4. АВТОРИЗАЦИЯ И РАБОТА С ЧАТОМ
+// ==========================================
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // Пользователь вошел в систему
         currentUser = user;
         showChatUI();
         loadMessages();
     } else {
-        // Пользователь вышел из системы
         currentUser = null;
         showAuthUI();
     }
 });
 
-// 5. Функция входа (Анонимная авторизация + сохранение никнейма)
 loginBtn.addEventListener("click", async () => {
     const username = usernameInput.value.trim();
     if (!username) {
-        alert("Пожалуйста, введите свой никнейм перед входом!");
+        alert("Пожалуйста, введите никнейм!");
         return;
     }
-
     try {
-        // Входим анонимно
         const userCredential = await signInAnonymously(auth);
-        // Обновляем профиль пользователя, записывая туда введенное имя
-        await updateProfile(userCredential.user, {
-            displayName: username
-        });
-        console.log("Успешный вход под именем:", username);
+        await updateProfile(userCredential.user, { displayName: username });
     } catch (error) {
-        console.error("Ошибка при авторизации:", error);
-        alert("Не удалось войти: " + error.message);
+        console.error("Ошибка входа:", error);
     }
 });
 
-// 6. Функция выхода из аккаунта
 logoutBtn.addEventListener("click", () => {
-    signOut(auth).catch((error) => console.error("Ошибка при выходе:", error));
+    signOut(auth).catch((error) => console.error("Ошибка выхода:", error));
 });
 
-// 7. Отправка нового сообщения в Firestore
 messageForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
     const messageText = messageInput.value.trim();
     if (!messageText || !currentUser) return;
 
     try {
-        // Добавляем документ в коллекцию "messages"
         await addDoc(collection(db, "messages"), {
             text: messageText,
             uid: currentUser.uid,
             displayName: currentUser.displayName || "Аноним",
-            createdAt: serverTimestamp() // Время сервера Firebase
+            createdAt: serverTimestamp()
         });
-        
-        // Очищаем поле ввода и возвращаем на него фокус
         messageForm.reset();
         messageInput.focus();
     } catch (error) {
-        console.error("Ошибка при отправке сообщения:", error);
+        console.error("Ошибка отправки:", error);
     }
 });
 
-// 8. Слушатель сообщений в реальном времени (Real-time listener)
 function loadMessages() {
-    // Формируем запрос: коллекция "messages", сортировка по времени, лимит — последние 50 штук
     const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(50));
-
-    //onSnapshot мгновенно реагирует на любые изменения в базе данных
     onSnapshot(q, (snapshot) => {
-        messagesDiv.innerHTML = ""; // Очищаем контейнер перед обновлением
-
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            renderMessage(data);
-        });
-
+        messagesDiv.innerHTML = "";
+        snapshot.forEach((doc) => renderMessage(doc.data()));
         scrollToBottom();
-    }, (error) => {
-        console.error("Ошибка получения сообщений:", error);
     });
 }
 
-// 9. Рендеринг одного сообщения на UI
 function renderMessage(data) {
     const messageElement = document.createElement("div");
-    messageElement.classList.add("message");
-
-    // Проверяем, текущий ли это пользователь, для стилизации (свои/чужие)
-    if (data.uid === currentUser.uid) {
-        messageElement.classList.add("my-message");
-    } else {
-        messageElement.classList.add("other-message");
-    }
-
-    // Безопасное экранирование текста, чтобы избежать XSS-атак
+    messageElement.classList.add("message", data.uid === currentUser.uid ? "my-message" : "other-message");
+    
     const safeText = escapeHTML(data.text);
     const safeName = escapeHTML(data.displayName);
 
-    messageElement.innerHTML = `
-        <span class="author">${safeName}:</span>
-        <span class="text">${safeText}</span>
-    `;
-    
+    messageElement.innerHTML = `<span class="author">${safeName}:</span> <span class="text">${safeText}</span>`;
     messagesDiv.appendChild(messageElement);
 }
 
-// 10. Вспомогательные функции (Интерфейс и безопасность)
+// ==========================================
+// 5. РЕГИСТРАЦИЯ СЕРВИС-ВОРКЕРА И PUSH
+// ==========================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(reg => console.log('Сервис-воркер успешно готов:', reg))
+    .catch(err => console.error('Ошибка воркера:', err));
+}
+
+async function subscribeUserToPush() {
+  if (!('Notification' in window)) {
+    alert('На iPhone push-уведомления работают только через экран «Домой» (Поделиться -> На экран "Домой").');
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    alert('Запрос на уведомления отклонен.');
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  if (!registration.pushManager) {
+    alert('Браузер не поддерживает Push-сообщения.');
+    return;
+  }
+
+  try {
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array('ТВОЙ_ПУБЛИЧНЫЙ_VAPID_КЛЮЧ') // Замени на свой реальный VAPID ключ
+    });
+
+    console.log('Успешная подписка:', subscription);
+    // Здесь отправляешь subscription на свой бэкенд сервер, если нужно
+    alert('Уведомления успешно настроены!');
+  } catch (error) {
+    console.error('Ошибка подписки на push:', error);
+    alert('Не удалось подписаться: ' + error.message);
+  }
+}
+
+// Слушатель для кнопки пушей (если она есть на UI)
+if (pushBtn) {
+    pushBtn.addEventListener("click", subscribeUserToPush);
+}
+
+// ==========================================
+// 6. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ==========================================
 function showChatUI() {
     authContainer.classList.add("hidden");
     chatContainer.classList.remove("hidden");
@@ -167,20 +183,22 @@ function showAuthUI() {
     messagesDiv.innerHTML = "";
 }
 
-function scrollToBottom() {
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
+function scrollToBottom() { messagesDiv.scrollTop = messagesDiv.scrollHeight; }
 
-// Защита от вредоносного HTML-кода в сообщениях
 function escapeHTML(str) {
     return str.replace(/[&<>"']/g, (match) => {
-        const entityMap = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        };
+        const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
         return entityMap[match];
     });
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
