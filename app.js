@@ -82,10 +82,12 @@ function updateActionButtonMode(mode) {
     if (messageInput.value.trim().length > 0 && mode !== 'send') return;
     
     const icon = actionBtn.querySelector("i");
+    if (!icon) return;
+    
     icon.className = ""; // сброс классов
     
     if (mode === 'send') {
-        icon.addClassName = icon.className = "fa-solid fa-paper-plane";
+        icon.className = "fa-solid fa-paper-plane";
     } else if (mode === 'voice') {
         icon.className = "fa-solid fa-microphone";
         currentMode = 'voice';
@@ -164,7 +166,15 @@ actionBtn.addEventListener("pointerdown", async (e) => {
             ? { audio: true, video: false } 
             : { audio: true, video: { width: 400, height: 400, facingMode: "user" } };
             
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // ЗАЩИТА: Если пользователь уже отпустил кнопку, пока запрашивался доступ
+        if (!isRecording) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+        
+        mediaStream = stream;
         
         if (currentMode === 'video') {
             cameraPreview.srcObject = mediaStream;
@@ -230,6 +240,7 @@ function cleanupMedia() {
     actionBtn.classList.remove("recording");
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
     }
 }
 
@@ -255,7 +266,7 @@ function renderMessage(data) {
     // Динамически рендерим контент в зависимости от его типа
     if (data.type === 'image') {
         contentHtml = `<img src="${data.fileUrl}" class="chat-image" alt="Картинка">`;
-    } else if (data.type === 'audio') {
+    } else if (data.type === 'voice') { // ИСПРАВЛЕНО: Было 'audio', стало 'voice'
         contentHtml = `<audio src="${data.fileUrl}" controls></audio>`;
     } else if (data.type === 'video') {
         contentHtml = `<video src="${data.fileUrl}" class="video-circle" autoplay loop muted playsinline onclick="this.paused ? this.play() : this.pause(); this.muted = !this.muted;"></video>`;
