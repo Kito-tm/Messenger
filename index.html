@@ -31,14 +31,14 @@
             --msg-meta-me: #7e9bb9;
             --reply-bg: rgba(255, 255, 255, 0.04);
         }
-#message-form {
-    display: flex;
-    align-items: center;
-    background-color: var(--bg-box);
-    padding: 8px 10px;
-    border-radius: 8px;
-    gap: 10px;
-}
+<form id="message-form" autocomplete="off">
+    <div class="input-wrapper">
+        <button type="button" id="attach-btn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
+        <input type="text" id="message-input" placeholder="Сообщение...">
+        <button type="button" id="action-btn" class="icon-btn"><i class="fa-solid fa-microphone"></i></button>
+    </div>
+    <input type="file" id="file-input" accept="image/*" style="display: none;">
+</form>
 
 #message-form input[type="text"] {
     flex: 1;
