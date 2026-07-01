@@ -57,7 +57,7 @@ const resizeAndConvertBase64 = (file, maxW, maxH, callback) => {
     reader.readAsDataURL(file);
 };
 
-// БЕЗОПАСНОЕ ДЕХЕШИРОВАНИЕ / РАБОТА С ПАРОЛЯМИ (Простая маскировка для localStorage)
+// БЕЗОПАСНОЕ ДЕХЕШИРОВАНИЕ / РАБОТА С ПАРОЛЯМИ
 const simpleHash = (str) => btoa(encodeURIComponent(str));
 const simpleDecode = (str) => str ? decodeURIComponent(atob(str)) : '';
 
@@ -113,11 +113,18 @@ const initApp = () => {
 
     // СЛУШАТЕЛЬ СООБЩЕНИЙ ДЛЯ СЧЕТЧИКОВ НЕПРОЧИТАННЫХ И ПОСЛЕДНИХ ТЕКСТОВ
     onValue(ref(db, 'messages'), (snap) => {
-        if (!snap.exists()) return;
+        if (!snap.exists()) {
+            activeConversations = {};
+            buildChatsList();
+            return;
+        }
         let lastSeenTimestamps = JSON.parse(store.get('last_seen_ts') || '{}');
+        let newConversations = {};
 
         snap.forEach((chatSnap) => {
             const chatId = chatSnap.key;
+            
+            // Проверка прав доступа к чату
             if (chatId.startsWith('group_')) {
                 const g = liveGroupData[chatId];
                 if (!g || !g.members || !g.members[user]) return;
@@ -139,54 +146,77 @@ const initApp = () => {
             });
 
             if (lastMsg) {
-                activeConversations[chatId] = {
+                newConversations[chatId] = {
                     lastText: lastMsg.type === 'text' ? lastMsg.text : `[${lastMsg.type}]`,
                     timestamp: lastMsg.timestamp,
                     unread: (chatId === activeChat && isWindowFocused) ? 0 : unreadCount
                 };
             }
         });
+        
+        activeConversations = newConversations;
         buildChatsList();
     });
 };
 
-// ПОСТРОЕНИЕ СПИСКА ЧАТОВ
+// ПОСТРОЕНИЕ СПИСКА ЧАТОВ (СТРОГО: ТОЛЬКО АКТИВНЫЕ ДИАЛОГИ)
 const buildChatsList = () => {
     const listEl = $('chats-list');
     if (!listEl) return;
     listEl.innerHTML = '';
+    
+    // Если сообщений еще нет в базе, выводим заглушку, а не всех подряд
+    if (Object.keys(activeConversations).length === 0) {
+        listEl.innerHTML = `<div style="color:#7f8c8d; text-align:center; margin-top:20px; font-size:14px;">Нет активных чатов</div>`;
+        return;
+    }
+
     let items = [];
 
-    // Личные диалоги
-    Object.keys(knownUsers).forEach(u => {
-        if (u === user) return;
-        const target = knownUsers[u];
-        const chatId = user < u ? `${user}_${u}` : `${u}_${user}`;
-        const conv = activeConversations[chatId] || { lastText: 'Нет сообщений', timestamp: 0, unread: 0 };
-        const isOnline = onlineStatus[u]?.online || target.online || false;
+    // Перебираем исключительно те chatId, которые есть в активных переписках
+    Object.keys(activeConversations).forEach(chatId => {
+        const conv = activeConversations[chatId];
 
-        items.push({
-            id: chatId, title: target.displayName || u,
-            avatar: target.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(target.displayName || u)}`,
-            lastText: conv.lastText, timestamp: conv.timestamp, unread: conv.unread, isOnline: isOnline
-        });
+        if (chatId.startsWith('group_')) {
+            // Групповой чат
+            const g = liveGroupData[chatId];
+            if (!g || !g.members || !g.members[user]) return;
+
+            items.push({
+                id: chatId, 
+                title: g.name || 'Группа',
+                avatar: g.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(g.name || 'G')}&background=random`,
+                lastText: conv.lastText, 
+                timestamp: conv.timestamp, 
+                unread: conv.unread, 
+                isOnline: false
+            });
+        } else {
+            // Личный диалог
+            const targetUser = chatId.split('_').find(x => x !== user);
+            const target = knownUsers[targetUser];
+            
+            // Если данные пользователя еще не подгрузились, используем логин как имя
+            const cTitle = target ? (target.displayName || targetUser) : targetUser;
+            const cAvatar = target?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(cTitle)}`;
+            const isOnline = target ? (onlineStatus[targetUser]?.online || target.online || false) : false;
+
+            items.push({
+                id: chatId, 
+                title: cTitle,
+                avatar: cAvatar,
+                lastText: conv.lastText, 
+                timestamp: conv.timestamp, 
+                unread: conv.unread, 
+                isOnline: isOnline
+            });
+        }
     });
 
-    // Групповые чаты
-    Object.keys(liveGroupData).forEach(gId => {
-        const g = liveGroupData[gId];
-        if (!g || !g.members || !g.members[user]) return;
-        const conv = activeConversations[gId] || { lastText: 'В группе нет сообщений', timestamp: 0, unread: 0 };
+    // Сортируем чаты: новые сообщения всегда сверху
+    items.sort((a, b) => b.timestamp - a.timestamp);
 
-        items.push({
-            id: gId, title: g.name || 'Группа',
-            avatar: g.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(g.name)}&background=random`,
-            lastText: conv.lastText, timestamp: conv.timestamp, unread: conv.unread, isOnline: false
-        });
-    });
-
-    items.sort((a,b) => b.timestamp - a.timestamp);
-
+    // Отрисовка элементов на экран
     items.forEach(item => {
         const div = document.createElement('div');
         div.className = `chat-item ${activeChat === item.id ? 'active' : ''}`;
@@ -233,7 +263,7 @@ const selectChat = (chatId, title, avURL) => {
     updateHeaderStatus();
     cleanupMedia();
 
-    if (liveListeners['chat']) liveListeners['chat'](); // Сброс старого слушателя сообщений чата
+    if (liveListeners['chat']) liveListeners['chat'](); 
     lastDateStr = null;
 
     liveListeners['chat'] = onValue(ref(db, `messages/${chatId}`), (snap) => {
@@ -273,7 +303,6 @@ const updateHeaderStatus = () => {
 const renderMessage = (msgId, d, chatId) => {
     const msgDiv = $('messages');
     
-    // Разделитель дат
     if (d.timestamp) {
         const dateStr = new Date(d.timestamp).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         if (dateStr !== lastDateStr) {
