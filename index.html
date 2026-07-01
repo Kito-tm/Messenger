@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TG Crypto Ultimate Dark</title>
+    <title>Kitogram</title>
     
     <link class="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="TG Crypto">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=TG&background=248bcf&color=fff&size=180">
+    <meta name="apple-mobile-web-app-title" content="Kitogram">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=K&background=248bcf&color=fff&size=180">
     
     <style>
         /* СТРОГАЯ ТЕМНАЯ ТЕМА TELEGRAM */
@@ -160,7 +160,6 @@
         <div id="toast-text"></div>
     </div>
 </div>
-
 <div id="context-menu">
     <div class="context-item" id="ctx-reply">↩️ Ответить</div>
     <div class="context-item" id="ctx-forward">↪️ Переслать</div>
@@ -303,6 +302,7 @@
         messagingSenderId: "568767713950",
         appId: "1:568767713950:web:36d347ceaf13a5d865e18f"
     };
+
 const db = getDatabase(initializeApp(firebaseConfig));
     let user = null, displayName = null, avatar = null, userColor = '#5288c1', mode = 'sidebar', lastList = null;
     let activeChat = null, activeChatName = '', activeChatAvatar = ''; 
@@ -481,7 +481,8 @@ const db = getDatabase(initializeApp(firebaseConfig));
     };
 
     const logout = () => { if(user && isNetworkOnline) update(ref(db, `users/${user}`), { online: false }); store.clear(); location.reload(); };
-const saveProfile = async () => {
+
+    const saveProfile = async () => {
         let newDN = $('modal-display-name-input').value.trim(); 
         let newUN = $('modal-username-input').value.trim();
         let newColor = $('modal-color-input').value;
@@ -530,7 +531,7 @@ const saveProfile = async () => {
         alert("Профиль успешно обновлен!");
     };
 
-    const openChat = (t, dName, avUrl) => {
+const openChat = (t, dName, avUrl) => {
         activeChat = t; activeChatName = dName; activeChatAvatar = avUrl;
         mode = [user, t].sort().join('_'); 
         cancelReply();
@@ -715,7 +716,8 @@ const saveProfile = async () => {
         }
         if ($('user-list')) $('user-list').innerHTML = html;
     }
-function createContactHtml(u, unreadCount, lastMsg) {
+
+    function createContactHtml(u, unreadCount, lastMsg) {
         const username = u.username; const dName = u.displayName || username.replace('@', '');
         const isOnline = onlineStatus[username] === true;
         const cId = [user, username].sort().join('_');
@@ -769,8 +771,7 @@ function createContactHtml(u, unreadCount, lastMsg) {
             renderSidebar();
         }, 400);
     });
-
-    const showMenu = (x, y, msgEl) => {
+const showMenu = (x, y, msgEl) => {
         selectedMsgId = msgEl.getAttribute('data-id');
         selectedMsgText = msgEl.getAttribute('data-text');
         selectedMsgSenderName = msgEl.getAttribute('data-sendername');
@@ -889,7 +890,8 @@ function createContactHtml(u, unreadCount, lastMsg) {
         const card = e.target.closest('.contact'); 
         if (card) openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), card.getAttribute('data-avatar'));
     });
-  // ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК БЕЗ СБРОСОВ ДАННЫХ ПРИ ПЕРЕЗАГРУЗКЕ
+
+    // ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК БЕЗ СБРОСОВ ДАННЫХ ПРИ ПЕРЕЗАГРУЗКЕ
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
