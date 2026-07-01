@@ -1,27 +1,11 @@
-// ==========================================
-// 1. ИМПОРТЫ FIREBASE SDK
-// ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-    getAuth, 
-    signInAnonymously, 
-    onAuthStateChanged, 
-    updateProfile, 
-    signOut 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    query, 
-    orderBy, 
-    limit, 
-    onSnapshot, 
-    serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// Подключаем Firebase Storage для картинок и медиафайлов
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 // ==========================================
-// 2. КОНФИГУРАЦИЯ FIREBASE
+// КОНФИГУРАЦИЯ FIREBASE (Замени на свои данные!)
 // ==========================================
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
@@ -35,10 +19,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-// ==========================================
-// 3. ДОМ-ЭЛЕМЕНТЫ ИНТЕРФЕЙСА
-// ==========================================
+// DOM элементы
 const authContainer = document.getElementById("auth-container");
 const chatContainer = document.getElementById("chat-container");
 const usernameInput = document.getElementById("username-input");
@@ -47,67 +30,218 @@ const logoutBtn = document.getElementById("logout-btn");
 const messagesDiv = document.getElementById("messages");
 const messageForm = document.getElementById("message-form");
 const messageInput = document.getElementById("message-input");
-const pushBtn = document.getElementById("push-btn"); // Кнопка "Включить уведомления", если она есть
+const attachBtn = document.getElementById("attach-btn");
+const fileInput = document.getElementById("file-input");
+const actionBtn = document.getElementById("action-btn");
+const cameraPreview = document.getElementById("camera-preview");
 
 let currentUser = null;
+let currentMode = 'voice'; // Может быть 'send', 'voice', 'video'
+let mediaRecorder = null;
+let recordedChunks = [];
+let mediaStream = null;
+let recordStartTime = 0;
+let isRecording = false;
 
-// ==========================================
-// 4. АВТОРИЗАЦИЯ И РАБОТА С ЧАТОМ
-// ==========================================
+// Наблюдение за авторизацией
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
-        showChatUI();
+        authContainer.classList.add("hidden");
+        chatContainer.classList.remove("hidden");
         loadMessages();
     } else {
         currentUser = null;
-        showAuthUI();
+        authContainer.classList.remove("hidden");
+        chatContainer.classList.add("hidden");
+        messagesDiv.innerHTML = "";
     }
 });
 
 loginBtn.addEventListener("click", async () => {
     const username = usernameInput.value.trim();
-    if (!username) {
-        alert("Пожалуйста, введите никнейм!");
-        return;
-    }
+    if (!username) return alert("Введите никнейм!");
     try {
-        const userCredential = await signInAnonymously(auth);
-        await updateProfile(userCredential.user, { displayName: username });
-    } catch (error) {
-        console.error("Ошибка входа:", error);
+        const cred = await signInAnonymously(auth);
+        await updateProfile(cred.user, { displayName: username });
+    } catch (err) { console.error(err); }
+});
+
+logoutBtn.addEventListener("click", () => signOut(auth));
+
+// Смена иконки кнопки в зависимости от текста
+messageInput.addEventListener("input", () => {
+    if (messageInput.value.trim().length > 0) {
+        updateActionButtonMode('send');
+    } else {
+        updateActionButtonMode(currentMode === 'send' ? 'voice' : currentMode);
     }
 });
 
-logoutBtn.addEventListener("click", () => {
-    signOut(auth).catch((error) => console.error("Ошибка выхода:", error));
-});
+function updateActionButtonMode(mode) {
+    if (messageInput.value.trim().length > 0 && mode !== 'send') return;
+    
+    const icon = actionBtn.querySelector("i");
+    icon.className = ""; // сброс классов
+    
+    if (mode === 'send') {
+        icon.addClassName = icon.className = "fa-solid fa-paper-plane";
+    } else if (mode === 'voice') {
+        icon.className = "fa-solid fa-microphone";
+        currentMode = 'voice';
+    } else if (mode === 'video') {
+        icon.className = "fa-solid fa-video";
+        currentMode = 'video';
+    }
+}
 
+// Отправка текстовых сообщений
 messageForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const messageText = messageInput.value.trim();
-    if (!messageText || !currentUser) return;
+    const text = messageInput.value.trim();
+    if (!text || !currentUser) return;
+    sendMessage({ type: 'text', text: text });
+    messageForm.reset();
+    updateActionButtonMode('voice');
+});
 
+// Универсальная функция пуша в Firestore
+async function sendMessage(payload) {
     try {
         await addDoc(collection(db, "messages"), {
-            text: messageText,
             uid: currentUser.uid,
             displayName: currentUser.displayName || "Аноним",
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
+            ...payload
         });
-        messageForm.reset();
-        messageInput.focus();
-    } catch (error) {
-        console.error("Ошибка отправки:", error);
+    } catch (err) { console.error("Ошибка сохранения сообщения:", err); }
+}
+
+// Загрузка картинок (скрепка)
+attachBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    
+    const fileRef = ref(storage, `chats/images/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+    
+    uploadTask.on('state_changed', null, (err) => console.error(err), async () => {
+        const url = await getDownloadURL(uploadTask.snapshot.ref);
+        sendMessage({ type: 'image', fileUrl: url, text: `Фото: ${file.name}` });
+    });
+    fileInput.value = ""; // Сброс
+});
+
+// ==========================================
+// ЛОГИКА УДЕРЖАНИЯ ДЛЯ ЗАПИСИ (Голосовые и Кружки)
+// ==========================================
+
+// Переключение режимов Голос/Кружок по короткому клику
+actionBtn.addEventListener("click", (e) => {
+    if (messageInput.value.trim().length > 0) {
+        messageForm.requestSubmit(); // если есть текст - отправляем форму
+        return;
+    }
+    // Если текста нет, короткий клик меняет режим
+    if (!isRecording) {
+        updateActionButtonMode(currentMode === 'voice' ? 'video' : 'voice');
     }
 });
 
+// Обработка долгого зажатия (работает на ПК и смартфонах)
+actionBtn.addEventListener("pointerdown", async (e) => {
+    if (messageInput.value.trim().length > 0) return;
+    e.preventDefault();
+    
+    recordStartTime = Date.now();
+    isRecording = true;
+    actionBtn.classList.add("recording");
+    
+    // Запускаем запись медиа потока
+    try {
+        const constraints = currentMode === 'voice' 
+            ? { audio: true, video: false } 
+            : { audio: true, video: { width: 400, height: 400, facingMode: "user" } };
+            
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (currentMode === 'video') {
+            cameraPreview.srcObject = mediaStream;
+            cameraPreview.style.display = "block";
+        }
+        
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(mediaStream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) recordedChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            cameraPreview.style.display = "none";
+            cameraPreview.srcObject = null;
+            
+            const duration = Date.now() - recordStartTime;
+            // Если удержание было меньше 400мс, считаем это случайным тапом и не отправляем
+            if (duration < 400) {
+                cleanupMedia();
+                return;
+            }
+            
+            const blobType = currentMode === 'voice' ? 'audio/webm' : 'video/webm';
+            const blob = new Blob(recordedChunks, { type: blobType });
+            const ext = currentMode === 'voice' ? 'webm' : 'mp4';
+            
+            const fileRef = ref(storage, `chats/media/${Date.now()}.${ext}`);
+            const uploadTask = uploadBytesResumable(fileRef, blob);
+            
+            const currentRecordMode = currentMode; // фиксируем режим перед отправкой
+            uploadTask.on('state_changed', null, (err) => console.error(err), async () => {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                sendMessage({ type: currentRecordMode, fileUrl: url });
+            });
+            
+            cleanupMedia();
+        };
+        
+        mediaRecorder.start();
+    } catch (err) {
+        alert("Не удалось получить доступ к микрофону/камере.");
+        cleanupMedia();
+    }
+});
+
+// Окончание удержания кнопки
+const stopRecordingHandler = () => {
+    if (!isRecording) return;
+    isRecording = false;
+    actionBtn.classList.remove("recording");
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+    }
+};
+
+actionBtn.addEventListener("pointerup", stopRecordingHandler);
+actionBtn.addEventListener("pointerleave", stopRecordingHandler); // если палец/мышка съехали с кнопки
+
+function cleanupMedia() {
+    isRecording = false;
+    actionBtn.classList.remove("recording");
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+    }
+}
+
+// ==========================================
+// ПОЛУЧЕНИЕ И РЕНДЕРИНГ СООБЩЕНИЙ
+// ==========================================
 function loadMessages() {
     const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(50));
     onSnapshot(q, (snapshot) => {
         messagesDiv.innerHTML = "";
         snapshot.forEach((doc) => renderMessage(doc.data()));
-        scrollToBottom();
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
 }
 
@@ -115,90 +249,30 @@ function renderMessage(data) {
     const messageElement = document.createElement("div");
     messageElement.classList.add("message", data.uid === currentUser.uid ? "my-message" : "other-message");
     
-    const safeText = escapeHTML(data.text);
     const safeName = escapeHTML(data.displayName);
+    let contentHtml = "";
 
-    messageElement.innerHTML = `<span class="author">${safeName}:</span> <span class="text">${safeText}</span>`;
+    // Динамически рендерим контент в зависимости от его типа
+    if (data.type === 'image') {
+        contentHtml = `<img src="${data.fileUrl}" class="chat-image" alt="Картинка">`;
+    } else if (data.type === 'audio') {
+        contentHtml = `<audio src="${data.fileUrl}" controls></audio>`;
+    } else if (data.type === 'video') {
+        contentHtml = `<video src="${data.fileUrl}" class="video-circle" autoplay loop muted playsinline onclick="this.paused ? this.play() : this.pause(); this.muted = !this.muted;"></video>`;
+    } else {
+        contentHtml = `<span class="text">${escapeHTML(data.text)}</span>`;
+    }
+
+    messageElement.innerHTML = `<span class="author">${safeName}:</span> ${contentHtml}`;
     messagesDiv.appendChild(messageElement);
 }
 
-// ==========================================
-// 5. РЕГИСТРАЦИЯ СЕРВИС-ВОРКЕРА И PUSH
-// ==========================================
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js')
-    .then(reg => console.log('Сервис-воркер успешно готов:', reg))
-    .catch(err => console.error('Ошибка воркера:', err));
-}
-
-async function subscribeUserToPush() {
-  if (!('Notification' in window)) {
-    alert('На iPhone push-уведомления работают только через экран «Домой» (Поделиться -> На экран "Домой").');
-    return;
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    alert('Запрос на уведомления отклонен.');
-    return;
-  }
-
-  const registration = await navigator.serviceWorker.ready;
-  if (!registration.pushManager) {
-    alert('Браузер не поддерживает Push-сообщения.');
-    return;
-  }
-
-  try {
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array('ТВОЙ_ПУБЛИЧНЫЙ_VAPID_КЛЮЧ') // Замени на свой реальный VAPID ключ
-    });
-
-    console.log('Успешная подписка:', subscription);
-    // Здесь отправляешь subscription на свой бэкенд сервер, если нужно
-    alert('Уведомления успешно настроены!');
-  } catch (error) {
-    console.error('Ошибка подписки на push:', error);
-    alert('Не удалось подписаться: ' + error.message);
-  }
-}
-
-// Слушатель для кнопки пушей (если она есть на UI)
-if (pushBtn) {
-    pushBtn.addEventListener("click", subscribeUserToPush);
-}
-
-// ==========================================
-// 6. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// ==========================================
-function showChatUI() {
-    authContainer.classList.add("hidden");
-    chatContainer.classList.remove("hidden");
-}
-
-function showAuthUI() {
-    authContainer.classList.remove("hidden");
-    chatContainer.classList.add("hidden");
-    messagesDiv.innerHTML = "";
-}
-
-function scrollToBottom() { messagesDiv.scrollTop = messagesDiv.scrollHeight; }
-
 function escapeHTML(str) {
-    return str.replace(/[&<>"']/g, (match) => {
-        const entityMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-        return entityMap[match];
-    });
+    if (!str) return "";
+    return str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
+// Сервис-воркер под капотом (Регистрация для PWA)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js').catch(err => console.error(err));
 }
