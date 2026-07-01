@@ -33,8 +33,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         body { display: flex; height: 100dvh; background: var(--bg-main); color: var(--text-main); overflow: hidden; }
         
-        #login-screen, #prof-modal, #forward-modal, #group-modal, #members-modal { position: fixed; inset: 0; background: var(--bg-main); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        #prof-modal, #forward-modal, #group-modal, #members-modal { display: none; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        #login-screen, #prof-modal, #forward-modal, #group-modal, #members-modal, #chat-settings-modal { position: fixed; inset: 0; background: var(--bg-main); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        #prof-modal, #forward-modal, #group-modal, #members-modal, #chat-settings-modal { display: none; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
         
         .box { background: var(--bg-box); color: var(--text-main); padding: 25px; border-radius: 15px; text-align: center; width: 92%; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
         .stg-scroll-area { max-height: 60vh; overflow-y: auto; padding-right: 5px; margin: 15px 0; text-align: left; }
@@ -175,6 +175,26 @@
         <button id="forward-cancel-btn" style="background:#444;">Отмена</button>
     </div>
 </div>
+
+<!-- НАСТРОЙКИ ФОНА ЛИЧНОГО ЧАТА (1х1) -->
+<div id="chat-settings-modal">
+    <div class="box">
+        <h3 id="settings-chat-title" style="margin-bottom: 15px;">Настройки чата</h3>
+        <div class="stg-scroll-area">
+            <div class="stg-section">
+                <div class="stg-section-title">Личный фон (Только для вас)</div>
+                <label class="file-lbl">Выбрать из галереи<input type="file" id="local-bg-file" accept="image/*" style="display:none;"></label>
+                <button id="reset-local-bg-btn" style="background:#e55050; padding:6px; font-size:12px; margin-top:5px; display:none;">Сбросить личный фон</button>
+            </div>
+            <div class="stg-section">
+                <div class="stg-section-title">Общий фон (Для двоих)</div>
+                <label class="file-lbl" style="background:rgba(49,181,69,0.15); color:#31b545;">Предложить фон собеседнику<input type="file" id="shared-bg-file" accept="image/*" style="display:none;"></label>
+            </div>
+        </div>
+        <button id="chat-settings-close-btn" style="background:#444;">Закрыть</button>
+    </div>
+</div>
+
 <!-- СОЗДАНИЕ БЕСЕДЫ -->
 <div id="group-modal">
     <div class="box" style="max-height: 85vh; display: flex; flex-direction: column;">
@@ -191,16 +211,43 @@
     </div>
 </div>
 
-<!-- УЧАСТНИКИ БЕСЕДЫ -->
+<!-- УЧАСТНИКИ И УПРАВЛЕНИЕ БЕСЕДОЙ -->
 <div id="members-modal">
-    <div class="box" style="max-height: 75vh; display: flex; flex-direction: column;">
-        <img id="members-group-avatar" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; border: 2px solid #5288c1; background: #222;">
-        <h3 id="members-group-name" style="margin-bottom: 12px; word-break: break-all;">Участники</h3>
-        <div id="members-list" style="flex: 1; overflow-y: auto; text-align: left; margin: 10px 0; padding-right: 5px;"></div>
-        <button id="members-close-btn" style="background:#444;">Закрыть</button>
+    <div class="box" style="max-height: 85vh; display: flex; flex-direction: column;">
+        <!-- Зона Создателя Группы -->
+        <div id="group-admin-zone" style="display:none;" class="stg-section">
+            <div class="stg-section-title">Управление беседой (Создатель)</div>
+            <input type="text" id="edit-group-name-input" placeholder="Новое название беседы">
+            <button id="save-group-name-btn" style="padding:6px; font-size:13px; margin-bottom:10px;">Сохранить название</button>
+            <div style="display:flex; gap:8px; justify-content:center;">
+                <label class="file-lbl" style="margin:0; font-size:11px; padding:6px 10px;">Сменить фото<input type="file" id="edit-group-avatar-file" accept="image/*" style="display:none;"></label>
+                <label class="file-lbl" style="margin:0; font-size:11px; padding:6px 10px; background:rgba(49,181,69,0.15); color:#31b545;">Поставить фон чата<input type="file" id="edit-group-bg-file" accept="image/*" style="display:none;"></label>
+            </div>
+        </div>
+        
+        <!-- Зона Обычного Участника -->
+        <div id="group-member-zone" style="display:none;" class="stg-section">
+            <div class="stg-section-title">Кастомизация</div>
+            <label class="file-lbl" style="width:100%; text-align:center; background:rgba(49,181,69,0.15); color:#31b545; margin:0;">Предложить фон беседы<input type="file" id="propose-group-bg-file" accept="image/*" style="display:none;"></label>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; margin-top:5px;">
+            <h3 id="members-group-name" style="word-break: break-all; text-align:left;">Участники</h3>
+            <button id="add-member-trigger-btn" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:#31b545;">+ Добавить людей</button>
+        </div>
+
+        <!-- Выезжающая панель добавления новых людей -->
+        <div id="add-member-zone" style="display:none;" class="stg-section">
+            <div class="stg-section-title">Пригласить в беседу</div>
+            <div id="available-to-add-list" style="max-height:140px; overflow-y:auto; margin-bottom:8px;"></div>
+            <button id="cancel-add-member-btn" style="background:#444; padding:5px; font-size:12px;">Отмена</button>
+        </div>
+
+        <img id="members-group-avatar" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin: 5px auto 10px; border: 2px solid #5288c1; background: #222;">
+        <div id="members-list" style="flex: 1; overflow-y: auto; text-align: left; padding-right: 5px;"></div>
+        <button id="members-close-btn" style="background:#444; margin-top:5px;">Закрыть</button>
     </div>
 </div>
-
 <div id="login-screen">
     <div class="box">
         <h2 style="margin-bottom:10px;">Вход / Регистрация</h2>
@@ -219,7 +266,6 @@
         <h2>Настройки профиля</h2>
         
         <div class="stg-scroll-area">
-            <!-- Блок Аккаунта -->
             <div class="stg-section">
                 <div class="stg-section-title">Аккаунт</div>
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
@@ -230,7 +276,6 @@
                 <input type="text" id="modal-username-input" placeholder="@username">
             </div>
 
-            <!-- Блок Выбора цвета -->
             <div class="stg-section">
                 <div class="stg-section-title">Внешний вид сообщений</div>
                 <div class="stg-row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -239,7 +284,6 @@
                 </div>
             </div>
 
-            <!-- Блок Конфиденциальности -->
             <div class="stg-section">
                 <div class="stg-section-title">Безопасность</div>
                 <div class="stg-row">
@@ -252,7 +296,6 @@
                 </div>
             </div>
 
-            <!-- Блок Оповещений -->
             <div class="stg-section">
                 <div class="stg-section-title">Оповещения и звуки</div>
                 <div class="stg-row">
@@ -403,6 +446,31 @@
             });
         }
     };
+  // ФУНКЦИЯ ДИНАМИЧЕСКОЙ УСТАНОВКИ ФОНА ДЛЯ ТЕКУЩЕГО ЧАТА
+    function applyChatBackground() {
+        const msgsEl = $('messages');
+        if (!msgsEl || !activeChat) return;
+        
+        let bg = localStorage.getItem('bg_local_' + mode); // Локальный 1х1 фон
+        
+        if (!bg && activeChat.startsWith('group_')) {
+            const g = activeGroups[activeChat];
+            if (g && g.background) bg = g.background; // Фон группы
+        } else if (!bg) {
+            if (window.sharedBackgrounds && window.sharedBackgrounds[mode]) {
+                bg = window.sharedBackgrounds[mode]; // Общий 1х1 фон
+            }
+        }
+        
+        if (bg) {
+            msgsEl.style.backgroundImage = `url(${bg})`;
+            msgsEl.style.backgroundSize = 'cover';
+            msgsEl.style.backgroundPosition = 'center';
+        } else {
+            msgsEl.style.backgroundImage = 'none';
+            msgsEl.style.backgroundColor = 'var(--bg-chat)';
+        }
+    }
 
     const send = () => {
         const txt = $('message-input') ? $('message-input').value.trim() : ''; 
@@ -462,7 +530,8 @@
             osc.start(); osc.stop(ctx.currentTime + 0.15);
         } catch (e) {}
     };
-const displayToastNotification = (title, text, av, targetNick, targetName) => {
+
+    const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
         if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
         $('toast-img').src = av || `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random`;
@@ -576,13 +645,14 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
         cancelReply();
         
         if ($('chat-avatar')) {
-            $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(dName)}&background=random`;
+            $('chat-avatar').src = avUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(dName)}&background=248bcf&color=fff`;
             $('chat-avatar').style.display = 'block';
         }
         if ($('chat-title')) $('chat-title').innerText = dName;
         if (window.innerWidth <= 768 && $('sidebar')) $('sidebar').classList.add('hidden');
 
         updateChatSubtitle();
+        applyChatBackground();
         loadMsgs(t);
     };
 
@@ -649,6 +719,35 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
 
                 if (d.sender === 'system') {
                     h += `<div class="dt-sep" style="background:rgba(49,181,69,0.15); color:#31b545; max-width:85%; font-weight:normal; text-align:center;">${d.text}</div>`;
+                } else if (d.type === 'bg_proposal') {
+                    // ОТРЕНДЕРИТЬ КАРТОЧКУ ГОЛОСОВАНИЯ ЗА ФОН ЧАТА
+                    const hasVoted = d.votes && d.votes[user] !== undefined;
+                    let actionButtons = '';
+                    
+                    if (d.status === 'pending') {
+                        if (!hasVoted) {
+                            actionButtons = `
+                                <div style="display:flex; gap:8px; margin-top:8px;">
+                                    <button class="vote-bg-btn accept" data-msgid="${c.key}" style="background:#31b545; padding:6px 12px; font-size:12px; margin:0; width:auto;">Принять ✅</button>
+                                    <button class="vote-bg-btn reject" data-msgid="${c.key}" style="background:#e55050; padding:6px 12px; font-size:12px; margin:0; width:auto;">Отклонить ❌</button>
+                                </div>
+                            `;
+                        } else {
+                            actionButtons = `<div style="font-size:12px; color:var(--text-sub); margin-top:6px; font-style:italic;">Ожидание остальных голосов...</div>`;
+                        }
+                    } else if (d.status === 'accepted') {
+                        actionButtons = `<div style="font-size:12px; color:#31b545; margin-top:6px; font-weight:bold;">Фон успешно принят и установлен! ✅</div>`;
+                    } else {
+                        actionButtons = `<div style="font-size:12px; color:#e55050; margin-top:6px; font-weight:bold;">Предложение отклонено ❌</div>`;
+                    }
+
+                    h += `<div class="msg ${isMe?'me':'them'}" data-id="${c.key}" style="max-width:80%;">
+                        ${nameMarkup}
+                        <div style="font-weight:bold; margin-bottom:5px;">${d.text}</div>
+                        <img src="${d.proposalBg}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; border:1px solid var(--border-color);">
+                        ${actionButtons}
+                        <div class="msg-meta"><span>${timeStr}</span><span class="ticks">${ticks}</span></div>
+                    </div>`;
                 } else {
                     h += `<div class="msg ${isMe?'me':'them'}" data-id="${c.key}" data-text="${d.text}" data-sendername="${d.senderName || d.sender}" data-sendercolor="${sColor}" data-liked="${d.liked || false}">
                         ${nameMarkup}
@@ -682,6 +781,12 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
         onDisconnect(userRef).update({ online: false });
 
         syncOfflineQueue();
+
+        // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ ОБЩИХ ФОНОВ (1х1 ЧАТЫ)
+        onValue(ref(db, 'shared_backgrounds'), (snap) => {
+            window.sharedBackgrounds = snap.val() || {};
+            applyChatBackground();
+        });
 
         // СЛУШАТЕЛЬ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ И ИХ ДИАЛОГОВ
         onValue(ref(db, 'users'), (snap) => {
@@ -736,6 +841,13 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
                 const gId = gChild.key;
                 if (gData && gData.members && gData.members[user]) {
                     activeGroups[gId] = gData;
+                    
+                    if (activeChat === gId) {
+                        applyChatBackground();
+                        if ($('chat-title')) $('chat-title').innerText = gData.name;
+                        if ($('chat-avatar')) $('chat-avatar').src = gData.avatar;
+                    }
+
                     if (!groupListeners[gId]) {
                         groupListeners[gId] = onValue(ref(db, `messages/${gId}`), (mSnap) => {
                             let unreadCount = 0, lastMsg = null;
@@ -745,7 +857,7 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
                                 lastMsg = md;
                             });
                             activeGroups[gId].unreadCount = unreadCount;
-                            activeGroups[gId].lastMsg = lastMsg;
+            activeGroups[gId].lastMsg = lastMsg;
                             renderSidebar();
                             
                             if (window.roomsLoaded && window.roomsLoaded[gId]) {
@@ -760,13 +872,13 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
                 } else {
                     if (groupListeners[gId]) { groupListeners[gId](); delete groupListeners[gId]; }
                     delete activeGroups[gId];
+                    if (activeChat === gId) backToSidebar();
                 }
             });
             renderSidebar();
         });
     }
-
-    function renderSidebar() {
+function renderSidebar() {
         const searchVal = $('search-user-input') ? $('search-user-input').value.trim().toLowerCase() : '';
         let html = '';
         let sidebarItems = [];
@@ -809,7 +921,8 @@ const displayToastNotification = (title, text, av, targetNick, targetName) => {
         }
         if ($('user-list')) $('user-list').innerHTML = html;
     }
-function createContactHtml(u, unreadCount, lastMsg) {
+
+    function createContactHtml(u, unreadCount, lastMsg) {
         const username = u.username; const dName = u.displayName || username.replace('@', '');
         const isOnline = onlineStatus[username] === true;
         const cId = [user, username].sort().join('_');
@@ -893,6 +1006,7 @@ function createContactHtml(u, unreadCount, lastMsg) {
         selectedMsgText = msgEl.getAttribute('data-text');
         selectedMsgSenderName = msgEl.getAttribute('data-sendername');
         selectedMsgSenderColor = msgEl.getAttribute('data-sendercolor'); 
+        if (!selectedMsgId) return; // Системные сообщения не вызываются
         const menu = $('context-menu');
         menu.style.left = `${x}px`; menu.style.top = `${y}px`; menu.style.display = 'flex';
     };
@@ -916,8 +1030,7 @@ function createContactHtml(u, unreadCount, lastMsg) {
         $('reply-preview-bar').style.display = 'flex';
         if ($('message-input')) $('message-input').focus();
     });
-
-    safeListen('ctx-forward', 'click', () => {
+safeListen('ctx-forward', 'click', () => {
         let listHtml = '';
         Object.keys(knownUsers).forEach(username => {
             if(username === user) return;
@@ -991,20 +1104,15 @@ function createContactHtml(u, unreadCount, lastMsg) {
         $('group-preview').src = '';
         $('group-preview').style.display = 'none';
         groupAvatarBase64 = null;
-        
-        const btn = $('group-submit-btn');
-        btn.disabled = true;
-        
+        $('group-submit-btn').disabled = true;
         $('group-modal').style.display = 'flex';
     });
 
-    // ОБРАБОТКА ИЗМЕНЕНИЯ ЧЕКБОКСОВ УЧАСТНИКОВ
     safeListen('group-contacts-list', 'change', () => {
         const checked = document.querySelectorAll('.group-member-checkbox:checked').length;
         $('group-submit-btn').disabled = (checked < 2);
     });
 
-    // ЗАГРУЗКА ФОТО БЕСЕДЫ
     safeListen('group-avatar-file', 'change', (e) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
@@ -1022,11 +1130,9 @@ function createContactHtml(u, unreadCount, lastMsg) {
         r.readAsDataURL(f);
     });
 
-    // ОТПРАВКА ДАННЫХ И СОЗДАНИЕ БЕСЕДЫ В FIREBASE
     safeListen('group-submit-btn', 'click', async () => {
         const name = $('group-name-input').value.trim();
         if (!name) return alert("Введите название беседы!");
-        
         const checkedBoxes = document.querySelectorAll('.group-member-checkbox:checked');
         if (checkedBoxes.length < 2) return alert("Выберите как минимум 2 участников!");
         if (!isNetworkOnline) return alert("Создание беседы невозможно без подключения к сети!");
@@ -1038,23 +1144,11 @@ function createContactHtml(u, unreadCount, lastMsg) {
 
         const finalAv = groupAvatarBase64 || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=248bcf&color=fff&size=120`;
 
-        const groupPayload = {
-            id: gId,
-            name: name,
-            avatar: finalAv,
-            members: members,
-            createdBy: user,
-            timestamp: Date.now()
-        };
+        const groupPayload = { id: gId, name: name, avatar: finalAv, members: members, createdBy: user, timestamp: Date.now() };
 
         await set(ref(db, `groups/${gId}`), groupPayload);
-        
-        const sysMsgRef = push(ref(db, `messages/${gId}`));
-        await set(sysMsgRef, {
-            sender: 'system',
-            text: `Беседа "${name}" создана пользователем ${displayName}`,
-            timestamp: Date.now(),
-            read: false
+        await set(push(ref(db, `messages/${gId}`)), {
+            sender: 'system', text: `Беседа "${name}" создана пользователем ${displayName}`, timestamp: Date.now(), read: false
         });
 
         $('group-modal').style.display = 'none';
@@ -1062,16 +1156,40 @@ function createContactHtml(u, unreadCount, lastMsg) {
     });
 
     safeListen('group-cancel-btn', 'click', () => $('group-modal').style.display = 'none');
-
-    // КЛИК НА ШАПКУ ЧАТА (ПОКАЗАТЬ УЧАСТНИКОВ БЕСЕДЫ)
+  // КЛИК НА ШАПКУ ЧАТА (РАЗВЕРТЫВАНИЕ СЕТТИНГОВ ИЛИ ПАНЕЛИ УЧАСТНИКОВ)
     safeListen('chat-header', 'click', (e) => {
-        if (e.target.closest('#back-btn') || !activeChat || !activeChat.startsWith('group_')) return;
-        const g = activeGroups[activeChat];
-        if (!g) return;
+        if (e.target.closest('#back-btn') || !activeChat) return;
+        
+        if (activeChat.startsWith('group_')) {
+            // ЛОГИКА ДЛЯ ГРУППЫ
+            const g = activeGroups[activeChat]; if (!g) return;
 
-        $('members-group-name').innerText = g.name;
-        $('members-group-avatar').src = g.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(g.name)}&background=248bcf&color=fff`;
+            $('members-group-name').innerText = g.name;
+            $('members-group-avatar').src = g.avatar;
+            
+            // Распределение прав управления
+            if (g.createdBy === user) {
+                $('group-admin-zone').style.display = 'block';
+                $('group-member-zone').style.display = 'none';
+                $('edit-group-name-input').value = g.name;
+            } else {
+                $('group-admin-zone').style.display = 'none';
+                $('group-member-zone').style.display = 'block';
+            }
+            
+            $('add-member-zone').style.display = 'none';
+            renderGroupMembersList(g);
+            $('members-modal').style.display = 'flex';
+        } else {
+            // ЛОГИКА ДЛЯ ЛИЧНОГО ЧАТА (1х1)
+            $('settings-chat-title').innerText = `Чат с ${activeChatName}`;
+            $('reset-local-bg-btn').style.display = localStorage.getItem('bg_local_' + mode) ? 'block' : 'none';
+            $('chat-settings-modal').style.display = 'flex';
+        }
+    });
 
+    // СБОРКА СПИСКА УЧАСТНИКОВ С ВОЗМОЖНОСТЬЮ КИКА
+    function renderGroupMembersList(g) {
         let html = '';
         Object.keys(g.members || {}).forEach(username => {
             const isMe = username === user;
@@ -1080,21 +1198,265 @@ function createContactHtml(u, unreadCount, lastMsg) {
             const avUrl = isMe ? avatar : (uData ? uData.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random`);
             const isOnline = isMe || (onlineStatus[username] === true);
             
+            let kickBtn = '';
+            if (g.createdBy === user && !isMe) {
+                kickBtn = `<button class="kick-member-btn" data-username="${username}" style="width:auto; background:#e55050; padding:4px 8px; font-size:11px; margin:0;">Исключить</button>`;
+            }
+
             html += `<div style="display:flex; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color);">
-                <img src="${avUrl}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; margin-right:12px; background:#222; border:1px solid var(--border-color);">
+                <img src="${avUrl}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; margin-right:12px; background:#222; border:1px solid var(--border-color);">
                 <div style="flex:1; min-width:0;">
                     <div style="font-weight:bold; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-main);">${dN}</div>
                     <div style="font-size:12px; color:${isOnline ? '#5288c1' : 'var(--text-sub)'};">${isOnline ? 'в сети' : 'был(а) недавно'}</div>
                 </div>
+                ${kickBtn}
             </div>`;
         });
-
         $('members-list').innerHTML = html;
-        $('members-modal').style.display = 'flex';
+    }
+
+    // ЛОГИКА КИКАНЬЯ ЛЮДЕЙ
+    safeListen('members-list', 'click', async (e) => {
+        const btn = e.target.closest('.kick-member-btn'); if (!btn) return;
+        const targetKickUser = btn.getAttribute('data-username');
+        if (!isNetworkOnline) return alert("Нет подключения к сети!");
+        
+        if (confirm(`Исключить пользователя ${targetKickUser} из беседы?`)) {
+            await set(ref(db, `groups/${activeChat}/members/${targetKickUser}`), null);
+            await set(push(ref(db, `messages/${activeChat}`)), {
+                sender: 'system', text: `Пользователь ${targetKickUser} исключен создателем беседы`, timestamp: Date.now(), read: false
+            });
+            alert("Пользователь удален!");
+            const snap = await get(ref(db, `groups/${activeChat}`));
+            if(snap.exists()) renderGroupMembersList(snap.val());
+            else $('members-modal').style.display = 'none';
+        }
     });
 
-    safeListen('members-close-btn', 'click', () => $('members-modal').style.display = 'none');
+    // ПАНЕЛЬ ДОБАВЛЕНИЯ НОВЫХ УЧАСТНИКОВ В ГРУППУ
+    safeListen('add-member-trigger-btn', 'click', () => {
+        const g = activeGroups[activeChat]; if (!g) return;
+        let html = '';
+        Object.values(activeConversations).forEach(c => {
+            if (g.members && !g.members[c.user.username]) {
+                html += `<div class="add-user-item" data-username="${c.user.username}" style="display:flex; align-items:center; justify-content:space-between; padding:8px; border-bottom:1px solid var(--border-color); cursor:pointer;">
+                    <img src="${c.user.avatar}" style="width:30px; height:30px; border-radius:50%; margin-right:10px; object-fit:cover;">
+                    <div style="flex:1; font-size:13px; font-weight:bold; color:var(--text-main);">${c.user.displayName || c.user.username}</div>
+                    <button style="width:auto; padding:4px 8px; font-size:11px; margin:0; background:#31b545;">+ Добавить</button>
+                </div>`;
+            }
+        });
+        $('available-to-add-list').innerHTML = html || '<div style="font-size:12px; color:var(--text-sub); padding:10px; text-align:center;">Все доступные контакты уже в группе.</div>';
+        $('add-member-zone').style.display = 'block';
+    });
 
+    safeListen('cancel-add-member-btn', 'click', () => $('add-member-zone').style.display = 'none');
+
+    safeListen('available-to-add-list', 'click', async (e) => {
+        const item = e.target.closest('.add-user-item'); if(!item) return;
+        const targetAddUser = item.getAttribute('data-username');
+        if (!isNetworkOnline) return alert("Ошибка подключения!");
+
+        await set(ref(db, `groups/${activeChat}/members/${targetAddUser}`), true);
+        await set(push(ref(db, `messages/${activeChat}`)), {
+            sender: 'system', text: `Пользователь ${targetAddUser} присоединён к беседе`, timestamp: Date.now(), read: false
+        });
+        
+        alert("Пользователь успешно добавлен!");
+        $('add-member-zone').style.display = 'none';
+        const snap = await get(ref(db, `groups/${activeChat}`));
+        if(snap.exists()) renderGroupMembersList(snap.val());
+    });
+
+    // ИЗМЕНЕНИЕ ИМЕНИ, АВАТАРКИ И ФОНА СОЗДАТЕЛЕМ НАПРЯМУЮ
+    safeListen('save-group-name-btn', 'click', async () => {
+        const newName = $('edit-group-name-input').value.trim();
+        if (!newName) return alert("Название не должно быть пустым!");
+        await update(ref(db, `groups/${activeChat}`), { name: newName });
+        await set(push(ref(db, `messages/${activeChat}`)), {
+            sender: 'system', text: `Создатель переименовал беседу в "${newName}"`, timestamp: Date.now(), read: false
+        });
+        alert("Название группы изменено!");
+    });
+
+    safeListen('edit-group-avatar-file', 'change', (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const img = new Image();
+            img.onload = async () => {
+                const c = document.createElement('canvas'); c.width = c.height = 120;
+                c.getContext('2d').drawImage(img, 0, 0, 120, 120);
+                const b64 = c.toDataURL('image/jpeg', 0.6);
+                await update(ref(db, `groups/${activeChat}`), { avatar: b64 });
+                $('members-group-avatar').src = b64;
+                await set(push(ref(db, `messages/${activeChat}`)), {
+                    sender: 'system', text: `Создатель обновил фото беседы`, timestamp: Date.now(), read: false
+                });
+                alert("Аватарка группы обновлена!");
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    });
+
+    safeListen('edit-group-bg-file', 'change', (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const img = new Image();
+            img.onload = async () => {
+                const c = document.createElement('canvas');
+                const maxW = 800; let w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+                c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+                const b64 = c.toDataURL('image/jpeg', 0.5);
+                
+                await update(ref(db, `groups/${activeChat}`), { background: b64 });
+                applyChatBackground();
+                await set(push(ref(db, `messages/${activeChat}`)), {
+                    sender: 'system', text: `Создатель напрямую установил новый фон беседы для всех`, timestamp: Date.now(), read: false
+                });
+                alert("Фон установлен принудительно!");
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    });
+// ПОДГРУЗКА И СБРОС ЛОКАЛЬНОГО ФОНА 1х1 ЧАТА
+    safeListen('local-bg-file', 'change', (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                const maxW = 800; let w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+                c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+                const b64 = c.toDataURL('image/jpeg', 0.5);
+                
+                localStorage.setItem('bg_local_' + mode, b64);
+                applyChatBackground();
+                $('chat-settings-modal').style.display = 'none';
+                alert('Личный фон применен!');
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    });
+
+    safeListen('reset-local-bg-btn', 'click', () => {
+        localStorage.removeItem('bg_local_' + mode);
+        applyChatBackground();
+        $('chat-settings-modal').style.display = 'none';
+        alert('Личный фон удален.');
+    });
+
+    // ИНИЦИАЛИЗАЦИЯ И ОТПРАВКА ГОЛОСОВАНИЙ ЗА ОБЩИЙ ФОН ЧАТА/БЕСЕДЫ
+    function submitBackgroundProposal(b64) {
+        if (!isNetworkOnline) return alert("Требуется подключение к интернету!");
+        
+        const initialVotes = {};
+        initialVotes[user] = true; // Автор предложения сразу за ✅
+
+        const msgPayload = {
+            sender: user,
+            senderName: displayName,
+            senderColor: userColor,
+            text: "🌌 Предложил(а) сменить фон для чата",
+            type: "bg_proposal",
+            proposalBg: b64,
+            votes: initialVotes,
+            status: "pending",
+            timestamp: Date.now(),
+            read: false
+        };
+
+        push(ref(db, `messages/${mode}`), msgPayload);
+        $('chat-settings-modal').style.display = 'none';
+        $('members-modal').style.display = 'none';
+    }
+
+    const processProposalUpload = (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                const maxW = 700; let w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+                c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+                submitBackgroundProposal(c.toDataURL('image/jpeg', 0.4));
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    };
+
+    safeListen('shared-bg-file', 'change', processProposalUpload);
+    safeListen('propose-group-bg-file', 'change', processProposalUpload);
+
+    // ОБРАБОТКА НАЖАТИЯ НА КНОПКИ ГОЛОСОВАНИЯ (ПРИНЯТЬ / ОТКЛОНИТЬ) ВНУТРИ СООБЩЕНИЙ
+    safeListen('messages', 'click', async (e) => {
+        const btn = e.target.closest('.vote-bg-btn'); if (!btn) return;
+        const msgId = btn.getAttribute('data-msgid');
+        const isAccept = btn.classList.contains('accept');
+        if (!isNetworkOnline) return alert("Для голосования необходим интернет!");
+
+        const msgRef = ref(db, `messages/${mode}/${msgId}`);
+        const snap = await get(msgRef); if (!snap.exists()) return;
+        const mData = snap.val();
+        if (mData.status !== 'pending') return;
+
+        if (!mData.votes) mData.votes = {};
+
+        if (!isAccept) {
+            // Если хотя бы один нажал ❌ — предложение сгорает
+            mData.status = 'rejected';
+            await update(msgRef, mData);
+            await set(push(ref(db, `messages/${mode}`)), {
+                sender: 'system', text: `Предложение смены фона отклонено пользователем ${displayName}`, timestamp: Date.now(), read: false
+            });
+            return;
+        }
+
+        // Если нажал ✅
+        mData.votes[user] = true;
+
+        let neededVotes = 2; // По умолчанию для ЛС (1х1)
+        if (activeChat.startsWith('group_')) {
+            neededVotes = Object.keys(activeGroups[activeChat].members || {}).length;
+        }
+
+        if (Object.keys(mData.votes).length >= neededVotes) {
+            mData.status = 'accepted';
+            
+            if (activeChat.startsWith('group_')) {
+                await update(ref(db, `groups/${activeChat}`), { background: mData.proposalBg });
+                await set(push(ref(db, `messages/${mode}`)), {
+                    sender: 'system', text: `Новый фон беседы успешно установлен всеобщим голосованием!`, timestamp: Date.now(), read: false
+                });
+            } else {
+                await update(ref(db, `shared_backgrounds`), { [mode]: mData.proposalBg });
+                await set(push(ref(db, `messages/${mode}`)), {
+                    sender: 'system', text: `Новый совместный фон чата успешно утверждён!`, timestamp: Date.now(), read: false
+                });
+            }
+        }
+
+        await update(msgRef, mData);
+    });
+
+    safeListen('chat-settings-close-btn', 'click', () => $('chat-settings-modal').style.display = 'none');
+    safeListen('members-close-btn', 'click', () => $('members-modal').style.display = 'none');
+    safeListen('reply-close-btn', 'click', cancelReply);
+    safeListen('avatar-file', 'change', (e) => processAv(e, 'login-preview'));
+    safeListen('modal-avatar-file', 'change', (e) => processAv(e, 'modal-preview'));
+    safeListen('login-submit-btn', 'click', login);
+    safeListen('auth-notifications-btn', 'click', requestNotificationPermission);
+    
     safeListen('my-profile-trigger', 'click', () => {
         if ($('modal-display-name-input')) $('modal-display-name-input').value = displayName; 
         if ($('modal-username-input')) $('modal-username-input').value = user;
@@ -1109,18 +1471,19 @@ function createContactHtml(u, unreadCount, lastMsg) {
     safeListen('modal-logout-btn', 'click', logout);
     safeListen('modal-cancel-btn', 'click', () => { if ($('prof-modal')) $('prof-modal').style.display = 'none'; });
     
-    safeListen('back-btn', 'click', () => { 
+    function backToSidebar() {
         if ($('sidebar')) $('sidebar').classList.remove('hidden'); 
         activeChat = null; mode = 'sidebar';
         if (lastList) { lastList(); lastList = null; }
         if ($('chat-title')) $('chat-title').innerText = 'Выберите чат';
         if ($('chat-subtitle')) $('chat-subtitle').innerText = '';
         if ($('chat-avatar')) $('chat-avatar').style.display = 'none';
-        if ($('messages')) $('messages').innerHTML = '';
+        if ($('messages')) { $('messages').innerHTML = ''; $('messages').style.backgroundImage = 'none'; $('messages').style.backgroundColor = 'var(--bg-chat)'; }
         if ($('search-user-input')) $('search-user-input').value = '';
         globalSearchResult = null; renderSidebar();
-    });
-    
+    }
+
+    safeListen('back-btn', 'click', backToSidebar);
     safeListen('send-btn', 'click', send); 
     safeListen('message-input', 'input', handleTyping);
     safeListen('message-input', 'keypress', (e) => { if(e.key==='Enter') send(); });
@@ -1133,7 +1496,7 @@ function createContactHtml(u, unreadCount, lastMsg) {
             else openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), card.getAttribute('data-avatar'));
         }
     });
-// ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК БЕЗ СБРОСОВ ДАННЫХ ПРИ ПЕРЕЗАГРУЗКЕ
+
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
         if (sU && sP) {
