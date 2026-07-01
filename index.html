@@ -96,8 +96,7 @@
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: var(--bg-chat); }
         
         .dt-sep { align-self: center; background: rgba(255,255,255,0.15); color: #fff; font-size: 11px; padding: 3px 9px; border-radius: 10px; margin: 10px 0; font-weight: 500; user-select: none; }
-        
-        /* ПУЗЫРИ СООБЩЕНИЙ */
+         /* ПУЗЫРИ СООБЩЕНИЙ */
         .msg { padding: 6px 10px 7px 10px; border-radius: 12px; margin-bottom: 6px; max-width: 70%; font-size: 15px; word-wrap: break-word; display: flex; flex-direction: column; box-shadow: 0 1px 1.5px rgba(0,0,0,0.3); position: relative; user-select: none; color: var(--msg-text); line-height: 1.4; }
         .msg.me { align-self: flex-end; background: var(--msg-me); border-bottom-right-radius: 3px; }
         .msg.them { align-self: flex-start; background: var(--msg-them); border-bottom-left-radius: 3px; }
@@ -108,7 +107,6 @@
         .msg.me .msg-meta { color: var(--msg-meta-me); }
         .ticks { margin-left: 4px; font-weight: bold; }
         
-        /* КУСТОМИЗИРОВАННЫЙ БЛОК ЦИТАТЫ/ОТВЕТА */
         .reply-sub-block { border-left: 3px solid #5288c1; padding: 3px 8px; margin-bottom: 5px; font-size: 13px; background: var(--reply-bg); border-radius: 3px; display: flex; flex-direction: column; gap: 1px; }
         .reply-sub-sender { font-weight: bold; font-size: 12.5px; }
         .reply-sub-text { opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -176,7 +174,6 @@
     </div>
 </div>
 
-<!-- НАСТРОЙКИ ФОНА ЛИЧНОГО ЧАТА (1х1) -->
 <div id="chat-settings-modal">
     <div class="box">
         <h3 id="settings-chat-title" style="margin-bottom: 15px;">Настройки чата</h3>
@@ -195,7 +192,6 @@
     </div>
 </div>
 
-<!-- СОЗДАНИЕ БЕСЕДЫ -->
 <div id="group-modal">
     <div class="box" style="max-height: 85vh; display: flex; flex-direction: column;">
         <h2>Создать беседу</h2>
@@ -211,10 +207,8 @@
     </div>
 </div>
 
-<!-- УЧАСТНИКИ И УПРАВЛЕНИЕ БЕСЕДОЙ -->
 <div id="members-modal">
     <div class="box" style="max-height: 85vh; display: flex; flex-direction: column;">
-        <!-- Зона Создателя Группы -->
         <div id="group-admin-zone" style="display:none;" class="stg-section">
             <div class="stg-section-title">Управление беседой (Создатель)</div>
             <input type="text" id="edit-group-name-input" placeholder="Новое название беседы">
@@ -225,7 +219,6 @@
             </div>
         </div>
         
-        <!-- Зона Обычного Участника -->
         <div id="group-member-zone" style="display:none;" class="stg-section">
             <div class="stg-section-title">Кастомизация</div>
             <label class="file-lbl" style="width:100%; text-align:center; background:rgba(49,181,69,0.15); color:#31b545; margin:0;">Предложить фон беседы<input type="file" id="propose-group-bg-file" accept="image/*" style="display:none;"></label>
@@ -236,7 +229,6 @@
             <button id="add-member-trigger-btn" style="width:auto; margin:0; padding:6px 12px; font-size:12px; background:#31b545;">+ Добавить людей</button>
         </div>
 
-        <!-- Выезжающая панель добавления новых людей -->
         <div id="add-member-zone" style="display:none;" class="stg-section">
             <div class="stg-section-title">Пригласить в беседу</div>
             <div id="available-to-add-list" style="max-height:140px; overflow-y:auto; margin-bottom:8px;"></div>
@@ -248,6 +240,7 @@
         <button id="members-close-btn" style="background:#444; margin-top:5px;">Закрыть</button>
     </div>
 </div>
+
 <div id="login-screen">
     <div class="box">
         <h2 style="margin-bottom:10px;">Вход / Регистрация</h2>
@@ -260,7 +253,6 @@
     </div>
 </div>
 
-<!-- НАСТРОЙКИ ПРОФИЛЯ -->
 <div id="prof-modal">
     <div class="box">
         <h2>Настройки профиля</h2>
@@ -295,8 +287,7 @@
                     <code id="crypto-fingerprint" style="font-size: 11px; color: #5288c1; word-break: break-all; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px; width: 100%;"></code>
                 </div>
             </div>
-
-            <div class="stg-section">
+<div class="stg-section">
                 <div class="stg-section-title">Оповещения и звуки</div>
                 <div class="stg-row">
                     <span>Звук при входящих</span>
@@ -440,25 +431,58 @@
     window.addEventListener('blur', () => { isWindowFocused = false; });
 
     const requestNotificationPermission = () => {
-        if ('Notification' in window && window.Notification) {
+        if ('Notification' in window) {
             window.Notification.requestPermission().then(permission => {
-                if (permission === 'granted') alert('Уведомления успешно включены.');
+                if (permission === 'granted') {
+                    alert('Уведомления успешно включены!');
+                    if ($('auth-notifications-btn')) $('auth-notifications-btn').style.display = 'none';
+                }
             });
         }
     };
-  // ФУНКЦИЯ ДИНАМИЧЕСКОЙ УСТАНОВКИ ФОНА ДЛЯ ТЕКУЩЕГО ЧАТА
+ // НОВАЯ ФУНКЦИЯ: ВЫВОД СИСТЕМНОГО ОПОВЕЩЕНИЯ В СТРОКУ УВЕДОМЛЕНИЙ С АГРЕГАЦИЕЙ СТРОК
+    const displaySystemNotification = (title, text, av, senderTag) => {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        // Если вкладка активна и именно этот чат открыт перед глазами — не шлем системное уведомление
+        if (isWindowFocused && activeChat === senderTag) return;
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                // Ищем уже висящие уведомления с тегом этого же чата/собеседника
+                registration.getNotifications({ tag: senderTag }).then(notifications => {
+                    let currentBody = text;
+                    
+                    if (notifications && notifications.length > 0) {
+                        const activeNotif = notifications[0];
+                        // Склеиваем старый текст уведомления и новое сообщение через перенос строки
+                        currentBody = activeNotif.body + '\n' + text;
+                    }
+                    
+                    registration.showNotification(title, {
+                        body: currentBody,
+                        icon: av || `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=248bcf&color=fff`,
+                        tag: senderTag, // Уникальный тег диалога предотвращает спам новыми карточками
+                        renotify: true,  // Вызовет повторный виброотклик/звук при обновлении стека текста
+                        vibrate: [100, 50, 100],
+                        badge: `https://ui-avatars.com/api/?name=K&background=248bcf&color=fff` // Микроиконка для статус-бара Android
+                    });
+                });
+            });
+        }
+    };
+
     function applyChatBackground() {
         const msgsEl = $('messages');
         if (!msgsEl || !activeChat) return;
         
-        let bg = localStorage.getItem('bg_local_' + mode); // Локальный 1х1 фон
+        let bg = localStorage.getItem('bg_local_' + mode); 
         
         if (!bg && activeChat.startsWith('group_')) {
             const g = activeGroups[activeChat];
-            if (g && g.background) bg = g.background; // Фон группы
+            if (g && g.background) bg = g.background; 
         } else if (!bg) {
             if (window.sharedBackgrounds && window.sharedBackgrounds[mode]) {
-                bg = window.sharedBackgrounds[mode]; // Общий 1х1 фон
+                bg = window.sharedBackgrounds[mode]; 
             }
         }
         
@@ -533,18 +557,24 @@
 
     const displayToastNotification = (title, text, av, targetNick, targetName) => {
         playChime();
-        if (!$('toast-img') || !$('toast-title') || !$('toast-text') || !$('toast-notification')) return;
-        $('toast-img').src = av || `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random`;
-        $('toast-title').innerText = title;
-        $('toast-text').innerText = text;
-        const toast = $('toast-notification');
-        toast.onclick = () => {
-            toast.classList.remove('show');
-            if (targetNick) openChat(targetNick, targetName, av);
-        };
-        toast.classList.add('show');
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
+        
+        // 1. Показ кастомного внутриигрового всплывающего окошка (если приложение развернуто)
+        if ($('toast-img') && $('toast-title') && $('toast-text') && $('toast-notification')) {
+            $('toast-img').src = av || `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random`;
+            $('toast-title').innerText = title;
+            $('toast-text').innerText = text;
+            const toast = $('toast-notification');
+            toast.onclick = () => {
+                toast.classList.remove('show');
+                if (targetNick) openChat(targetNick, targetName, av);
+            };
+            toast.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+        
+        // 2. ДУБЛИРОВАНИЕ В СИСТЕМНУЮ СТРОКУ УВЕДОМЛЕНИЙ ТЕЛЕФОНА
+        displaySystemNotification(title, text, av, targetNick);
     };
 
     const processAv = (e, pId) => {
@@ -654,6 +684,14 @@
         updateChatSubtitle();
         applyChatBackground();
         loadMsgs(t);
+        // Убираем системное уведомление из шторки, так как мы вошли в этот чат
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(reg => {
+                reg.getNotifications({ tag: t }).then(notifs => {
+                    if (notifs) notifs.forEach(n => n.close());
+                });
+            });
+        }
     };
 
     const updateChatSubtitle = () => {
@@ -720,7 +758,6 @@
                 if (d.sender === 'system') {
                     h += `<div class="dt-sep" style="background:rgba(49,181,69,0.15); color:#31b545; max-width:85%; font-weight:normal; text-align:center;">${d.text}</div>`;
                 } else if (d.type === 'bg_proposal') {
-                    // ОТРЕНДЕРИТЬ КАРТОЧКУ ГОЛОСОВАНИЯ ЗА ФОН ЧАТА
                     const hasVoted = d.votes && d.votes[user] !== undefined;
                     let actionButtons = '';
                     
@@ -782,13 +819,11 @@
 
         syncOfflineQueue();
 
-        // СЛУШАТЕЛЬ ИЗМЕНЕНИЙ ОБЩИХ ФОНОВ (1х1 ЧАТЫ)
         onValue(ref(db, 'shared_backgrounds'), (snap) => {
             window.sharedBackgrounds = snap.val() || {};
             applyChatBackground();
         });
 
-        // СЛУШАТЕЛЬ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ И ИХ ДИАЛОГОВ
         onValue(ref(db, 'users'), (snap) => {
             snap.forEach(c => { 
                 const u = c.val(); 
@@ -797,8 +832,7 @@
                     onlineStatus[u.username] = u.online || false;
                 }
             });
-            
-            Object.keys(knownUsers).forEach(username => {
+Object.keys(knownUsers).forEach(username => {
                 if (username === user) return;
                 const cId = [user, username].sort().join('_');
                 
@@ -834,7 +868,6 @@
             });
         });
 
-        // СЛУШАТЕЛЬ БЕСЕД (ГРУПП)
         onValue(ref(db, 'groups'), (gSnap) => {
             gSnap.forEach(gChild => {
                 const gData = gChild.val();
@@ -857,7 +890,7 @@
                                 lastMsg = md;
                             });
                             activeGroups[gId].unreadCount = unreadCount;
-            activeGroups[gId].lastMsg = lastMsg;
+                            activeGroups[gId].lastMsg = lastMsg;
                             renderSidebar();
                             
                             if (window.roomsLoaded && window.roomsLoaded[gId]) {
@@ -878,7 +911,8 @@
             renderSidebar();
         });
     }
-function renderSidebar() {
+
+    function renderSidebar() {
         const searchVal = $('search-user-input') ? $('search-user-input').value.trim().toLowerCase() : '';
         let html = '';
         let sidebarItems = [];
@@ -1006,7 +1040,7 @@ function renderSidebar() {
         selectedMsgText = msgEl.getAttribute('data-text');
         selectedMsgSenderName = msgEl.getAttribute('data-sendername');
         selectedMsgSenderColor = msgEl.getAttribute('data-sendercolor'); 
-        if (!selectedMsgId) return; // Системные сообщения не вызываются
+        if (!selectedMsgId) return; 
         const menu = $('context-menu');
         menu.style.left = `${x}px`; menu.style.top = `${y}px`; menu.style.display = 'flex';
     };
@@ -1030,7 +1064,8 @@ function renderSidebar() {
         $('reply-preview-bar').style.display = 'flex';
         if ($('message-input')) $('message-input').focus();
     });
-safeListen('ctx-forward', 'click', () => {
+
+    safeListen('ctx-forward', 'click', () => {
         let listHtml = '';
         Object.keys(knownUsers).forEach(username => {
             if(username === user) return;
@@ -1046,8 +1081,7 @@ safeListen('ctx-forward', 'click', () => {
         $('forward-chats-list').innerHTML = listHtml || '<div style="color:var(--text-sub);font-size:14px;padding:10px;">Список чатов пуст</div>';
         $('forward-modal').style.display = 'flex';
     });
-
-    safeListen('forward-chats-list', 'click', (e) => {
+safeListen('forward-chats-list', 'click', (e) => {
         const item = e.target.closest('.fwd-list-item'); if(!item) return;
         const targetNick = item.getAttribute('data-nick');
         const targetRoom = [user, targetNick].sort().join('_');
@@ -1086,7 +1120,6 @@ safeListen('ctx-forward', 'click', () => {
     safeListen('login-submit-btn', 'click', login);
     safeListen('auth-notifications-btn', 'click', requestNotificationPermission);
     
-    // ОТКРЫТИЕ ОКНА СОЗДАНИЯ БЕСЕДЫ
     safeListen('create-group-trigger', 'click', () => {
         let html = '';
         Object.values(activeConversations).forEach(c => {
@@ -1156,18 +1189,16 @@ safeListen('ctx-forward', 'click', () => {
     });
 
     safeListen('group-cancel-btn', 'click', () => $('group-modal').style.display = 'none');
-  // КЛИК НА ШАПКУ ЧАТА (РАЗВЕРТЫВАНИЕ СЕТТИНГОВ ИЛИ ПАНЕЛИ УЧАСТНИКОВ)
+
     safeListen('chat-header', 'click', (e) => {
         if (e.target.closest('#back-btn') || !activeChat) return;
         
         if (activeChat.startsWith('group_')) {
-            // ЛОГИКА ДЛЯ ГРУППЫ
             const g = activeGroups[activeChat]; if (!g) return;
 
             $('members-group-name').innerText = g.name;
             $('members-group-avatar').src = g.avatar;
             
-            // Распределение прав управления
             if (g.createdBy === user) {
                 $('group-admin-zone').style.display = 'block';
                 $('group-member-zone').style.display = 'none';
@@ -1181,15 +1212,12 @@ safeListen('ctx-forward', 'click', () => {
             renderGroupMembersList(g);
             $('members-modal').style.display = 'flex';
         } else {
-            // ЛОГИКА ДЛЯ ЛИЧНОГО ЧАТА (1х1)
             $('settings-chat-title').innerText = `Чат с ${activeChatName}`;
             $('reset-local-bg-btn').style.display = localStorage.getItem('bg_local_' + mode) ? 'block' : 'none';
             $('chat-settings-modal').style.display = 'flex';
         }
     });
-
-    // СБОРКА СПИСКА УЧАСТНИКОВ С ВОЗМОЖНОСТЬЮ КИКА
-    function renderGroupMembersList(g) {
+function renderGroupMembersList(g) {
         let html = '';
         Object.keys(g.members || {}).forEach(username => {
             const isMe = username === user;
@@ -1215,7 +1243,6 @@ safeListen('ctx-forward', 'click', () => {
         $('members-list').innerHTML = html;
     }
 
-    // ЛОГИКА КИКАНЬЯ ЛЮДЕЙ
     safeListen('members-list', 'click', async (e) => {
         const btn = e.target.closest('.kick-member-btn'); if (!btn) return;
         const targetKickUser = btn.getAttribute('data-username');
@@ -1233,7 +1260,6 @@ safeListen('ctx-forward', 'click', () => {
         }
     });
 
-    // ПАНЕЛЬ ДОБАВЛЕНИЯ НОВЫХ УЧАСТНИКОВ В ГРУППУ
     safeListen('add-member-trigger-btn', 'click', () => {
         const g = activeGroups[activeChat]; if (!g) return;
         let html = '';
@@ -1268,7 +1294,6 @@ safeListen('ctx-forward', 'click', () => {
         if(snap.exists()) renderGroupMembersList(snap.val());
     });
 
-    // ИЗМЕНЕНИЕ ИМЕНИ, АВАТАРКИ И ФОНА СОЗДАТЕЛЕМ НАПРЯМУЮ
     safeListen('save-group-name-btn', 'click', async () => {
         const newName = $('edit-group-name-input').value.trim();
         if (!newName) return alert("Название не должно быть пустым!");
@@ -1323,7 +1348,7 @@ safeListen('ctx-forward', 'click', () => {
         };
         r.readAsDataURL(f);
     });
-// ПОДГРУЗКА И СБРОС ЛОКАЛЬНОГО ФОНА 1х1 ЧАТА
+
     safeListen('local-bg-file', 'change', (e) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
@@ -1353,12 +1378,11 @@ safeListen('ctx-forward', 'click', () => {
         alert('Личный фон удален.');
     });
 
-    // ИНИЦИАЛИЗАЦИЯ И ОТПРАВКА ГОЛОСОВАНИЙ ЗА ОБЩИЙ ФОН ЧАТА/БЕСЕДЫ
     function submitBackgroundProposal(b64) {
         if (!isNetworkOnline) return alert("Требуется подключение к интернету!");
         
         const initialVotes = {};
-        initialVotes[user] = true; // Автор предложения сразу за ✅
+        initialVotes[user] = true; 
 
         const msgPayload = {
             sender: user,
@@ -1372,8 +1396,7 @@ safeListen('ctx-forward', 'click', () => {
             timestamp: Date.now(),
             read: false
         };
-
-        push(ref(db, `messages/${mode}`), msgPayload);
+push(ref(db, `messages/${mode}`), msgPayload);
         $('chat-settings-modal').style.display = 'none';
         $('members-modal').style.display = 'none';
     }
@@ -1398,7 +1421,6 @@ safeListen('ctx-forward', 'click', () => {
     safeListen('shared-bg-file', 'change', processProposalUpload);
     safeListen('propose-group-bg-file', 'change', processProposalUpload);
 
-    // ОБРАБОТКА НАЖАТИЯ НА КНОПКИ ГОЛОСОВАНИЯ (ПРИНЯТЬ / ОТКЛОНИТЬ) ВНУТРИ СООБЩЕНИЙ
     safeListen('messages', 'click', async (e) => {
         const btn = e.target.closest('.vote-bg-btn'); if (!btn) return;
         const msgId = btn.getAttribute('data-msgid');
@@ -1413,7 +1435,6 @@ safeListen('ctx-forward', 'click', () => {
         if (!mData.votes) mData.votes = {};
 
         if (!isAccept) {
-            // Если хотя бы один нажал ❌ — предложение сгорает
             mData.status = 'rejected';
             await update(msgRef, mData);
             await set(push(ref(db, `messages/${mode}`)), {
@@ -1422,10 +1443,9 @@ safeListen('ctx-forward', 'click', () => {
             return;
         }
 
-        // Если нажал ✅
         mData.votes[user] = true;
 
-        let neededVotes = 2; // По умолчанию для ЛС (1х1)
+        let neededVotes = 2; 
         if (activeChat.startsWith('group_')) {
             neededVotes = Object.keys(activeGroups[activeChat].members || {}).length;
         }
@@ -1451,11 +1471,6 @@ safeListen('ctx-forward', 'click', () => {
 
     safeListen('chat-settings-close-btn', 'click', () => $('chat-settings-modal').style.display = 'none');
     safeListen('members-close-btn', 'click', () => $('members-modal').style.display = 'none');
-    safeListen('reply-close-btn', 'click', cancelReply);
-    safeListen('avatar-file', 'change', (e) => processAv(e, 'login-preview'));
-    safeListen('modal-avatar-file', 'change', (e) => processAv(e, 'modal-preview'));
-    safeListen('login-submit-btn', 'click', login);
-    safeListen('auth-notifications-btn', 'click', requestNotificationPermission);
     
     safeListen('my-profile-trigger', 'click', () => {
         if ($('modal-display-name-input')) $('modal-display-name-input').value = displayName; 
@@ -1496,6 +1511,13 @@ safeListen('ctx-forward', 'click', () => {
             else openChat(card.getAttribute('data-nick'), card.getAttribute('data-dname'), card.getAttribute('data-avatar'));
         }
     });
+
+    // АВТОМАТИЧЕСКАЯ РЕГИСТРАЦИЯ СЕРВИС-ВОРКЕРА ДЛЯ СИСТЕМНЫХ ОПОВЕЩЕНИЙ
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration error:', err));
+        });
+    }
 
     (async () => {
         const sU = store.get('c_nk'), sP = store.get('c_pv');
