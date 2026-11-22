@@ -7,15 +7,18 @@
 <meta name="robots" content="noindex,nofollow">
 <title>TallyPlus</title>
 <!--
-  TallyPlus — track scanned parcels: SKU + location + qty.
-  Single file, no libraries, ES5 only, built for a barcode-scanner PDA and
-  feature phones. Storage: Firebase RTDB REST (same project as Kitogram).
+  TallyPlus — parcel tracking for warehouse work.
+  Single file, no libraries, ES5 only: runs on a PDA scanner and feature phones.
+
+  Shared board: every parcel records who added it. Owners edit/delete their own;
+  the admin account (Kito) can edit everyone's. XP + levels + leaderboard.
+  Storage: Firebase RTDB REST, node tallyplus/*.
 -->
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
   body{
-    background:#0f1a24;color:#e8eef4;padding:12px 12px 90px;
+    background:#0f1a24;color:#e8eef4;padding:12px 12px 96px;
     font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif
   }
   .hidden{display:none !important}
@@ -28,33 +31,39 @@
     border:1px solid #2d3d4d;background:#0c141b;color:#e8eef4;outline:none
   }
   input:focus{border-color:#38bdf8}
-  input[readonly]{color:#93a6b8}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}
   button{font:inherit;cursor:pointer;border-radius:11px;border:1px solid #2d3d4d;background:#22303c;color:#e8eef4}
   .big{width:100%;padding:15px;font-size:17px;font-weight:600;background:#38bdf8;border-color:#38bdf8;color:#07202d;margin-top:16px}
   .big:active{background:#25a7de}
   .big[disabled]{opacity:.5}
+  .ghostbtn{width:100%;padding:12px;font-size:14px;background:none;color:#8ba0b3;margin-top:8px}
   .err{color:#ff8a80;font-size:14px;margin-top:10px;min-height:18px}
-  .ok{color:#6ee7a8}
-  /* ---------- app ---------- */
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}
+  /* ---------- app shell ---------- */
   .wrap{max-width:640px;margin:0 auto}
-  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-  .top .user{font-size:12px;color:#6b8296}
+  .top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .who{display:flex;align-items:center;gap:8px}
+  .lvl{
+    flex:none;width:42px;height:42px;border-radius:11px;background:#16212c;border:1px solid #2b3d4b;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05
+  }
+  .lvl b{font-size:15px;color:#38bdf8}
+  .lvl i{font-size:9px;color:#6b8296;font-style:normal;letter-spacing:.06em}
+  .who .nm{font-size:15px;font-weight:600}
+  .who .xp{font-size:11px;color:#6b8296}
+  .xpbar{height:4px;background:#1b2836;border-radius:3px;margin-top:4px;overflow:hidden;width:120px}
+  .xpbar i{display:block;height:100%;background:#38bdf8;width:0}
+  .topr{display:flex;gap:6px;align-items:center}
+  .topr button{padding:8px 10px;font-size:13px;background:#16212c}
+  /* ---------- search ---------- */
   .searchbox{position:relative;margin:0 0 8px}
   .searchbox input{padding-left:38px}
   .searchbox .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#5f7488;font-size:16px}
-  .searchbox .clr{
-    position:absolute;right:6px;top:50%;transform:translateY(-50%);
-    background:none;border:0;color:#7f93a6;font-size:20px;padding:6px 10px
-  }
+  .searchbox .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:#7f93a6;font-size:20px;padding:6px 10px}
   .hintbar{font-size:12px;color:#7f93a6;margin:0 0 10px;display:flex;gap:12px;flex-wrap:wrap}
   .hintbar b{color:#ffb74d}
   .stats{font-size:12px;color:#6b8296;margin:0 0 10px}
   /* ---------- rows ---------- */
-  .row{
-    background:#16212c;border:1px solid #24333f;border-left-width:5px;border-radius:12px;
-    padding:11px 12px;margin-bottom:9px
-  }
+  .row{background:#16212c;border:1px solid #24333f;border-left-width:5px;border-radius:12px;padding:11px 12px;margin-bottom:9px}
   .row.fresh{border-left-color:#22c55e}
   .row.old{border-left-color:#ef4444}
   .row .l1{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
@@ -63,35 +72,39 @@
   .row .l2{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}
   .row .loc{font-size:14px;color:#9fb4c7;word-break:break-all}
   .row .loc b{color:#dbe7f1;font-weight:600}
-  .row .qty{
-    flex:none;background:#0f1a24;border:1px solid #2d3d4d;border-radius:8px;
-    padding:3px 9px;font-size:14px;font-weight:700;color:#38bdf8
-  }
+  .row .qty{flex:none;background:#0f1a24;border:1px solid #2d3d4d;border-radius:8px;padding:3px 9px;font-size:14px;font-weight:700;color:#38bdf8}
   .row .l3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12px;color:#6b8296}
+  .row .by{color:#93a6b8}
+  .row .by b{color:#cddbe7;font-weight:600}
   .row .acts{display:flex;gap:6px;flex:none}
   .row .acts button{padding:5px 9px;font-size:12px}
   .row .acts .check{color:#6ee7a8;border-color:#254b39;background:#13251d}
-  .row .acts .del{color:#ff9d95;border-color:#4a2b2b;background:#241a1a}
+  .row .acts .check.locked{color:#4a5a68;border-color:#26343f;background:#131c24}
   .row .acts .edit{color:#8fd2ff;border-color:#25455b;background:#132430}
-  .row .acts .check.locked{color:#4a5a68;border-color:#26343f;background:#131c24;cursor:not-allowed}
-  .row .hint{font-size:11px;color:#5f7488;margin-left:4px}
+  .row .acts .del{color:#ff9d95;border-color:#4a2b2b;background:#241a1a}
   .row.flash{animation:flash .9s ease-out 2}
   @keyframes flash{0%{background:#1d3a2b}100%{background:#16212c}}
   .empty{text-align:center;color:#7f93a6;padding:34px 14px;font-size:15px;line-height:1.6}
   .empty b{color:#9fb4c7}
-  /* ---------- bottom bar ---------- */
-  .bottom{
-    position:fixed;left:0;right:0;bottom:0;padding:10px 12px;
-    background:linear-gradient(to top,#0f1a24 70%,rgba(15,26,36,0));z-index:20
-  }
+  /* ---------- leaderboard ---------- */
+  .lbrow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#16212c;border:1px solid #24333f;border-radius:11px;margin-bottom:7px}
+  .lbrow.me{border-color:#2f6f8f;background:#132430}
+  .lbrank{flex:none;width:26px;text-align:center;font-size:14px;font-weight:700;color:#6b8296}
+  .lbrow:nth-child(1) .lbrank{color:#ffd54f}
+  .lbname{flex:1;font-size:15px;font-weight:600;word-break:break-all}
+  .lbname small{display:block;font-weight:400;font-size:11px;color:#6b8296}
+  .lbval{flex:none;text-align:right;font-size:15px;font-weight:700;color:#38bdf8}
+  .lbval small{display:block;font-weight:400;font-size:11px;color:#6b8296}
+  /* ---------- bottom ---------- */
+  .bottom{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(to top,#0f1a24 70%,rgba(15,26,36,0));z-index:20}
   .bottom .inner{max-width:640px;margin:0 auto;display:flex;gap:8px}
   .bottom button{flex:1;padding:15px;font-size:17px;font-weight:700}
   .bottom .create{background:#22c55e;border-color:#22c55e;color:#04150b}
   .bottom .create:active{background:#1aa84e}
   .bottom .scan{background:#38bdf8;border-color:#38bdf8;color:#07202d;flex:0 0 auto;padding:15px 18px;font-size:19px}
   /* ---------- modal ---------- */
-  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(4,10,16,.86);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
-  .sheet{background:#16212c;border:1px solid #2b3d4b;border-radius:16px;padding:16px;width:100%;max-width:460px}
+  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(4,10,16,.86);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto}
+  .sheet{background:#16212c;border:1px solid #2b3d4b;border-radius:16px;padding:16px;width:100%;max-width:460px;margin:auto}
   .sheet h2{font-size:17px;margin:0 0 4px}
   .sheet .sub{font-size:13px;color:#8ba0b3;margin:0 0 4px}
   .sheet .row2{display:flex;gap:8px;margin-top:16px}
@@ -99,18 +112,28 @@
   .sheet .row2 .ghost{background:none;color:#9fb4c7}
   .sheet .row2 .go{background:#38bdf8;border-color:#38bdf8;color:#07202d;font-weight:700}
   .sheet .row2 .go[disabled]{opacity:.5}
-  .sheet .del{background:#241a1a;border-color:#4a2b2b;color:#ff9d95}
+  .sheet .row2 .del{background:#241a1a;border-color:#4a2b2b;color:#ff9d95}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px solid #22303c}
   .kv:last-child{border-bottom:0}
   .kv span:first-child{color:#8ba0b3}
   .kv span:last-child{font-weight:600;word-break:break-all;text-align:right}
+  .tabs{display:flex;gap:6px;margin:10px 0 12px}
+  .tabs button{flex:1;padding:9px 4px;font-size:14px;background:#16202a;color:#9fb4c7}
+  .tabs button.on{background:#38bdf8;border-color:#38bdf8;color:#07202d;font-weight:700}
+  /* ---------- location picker ---------- */
+  .locbox{display:flex;align-items:center;gap:6px;margin:8px 0}
+  .locbox input{text-align:center;font-size:22px;padding:12px 6px;letter-spacing:.06em}
+  .locsep{font-size:22px;color:#5f7488}
+  .abc{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
+  .abc button{padding:12px 0;font-size:16px;font-weight:700;background:#132430;border-color:#25455b;color:#8fd2ff}
+  .abc button.on{background:#38bdf8;border-color:#38bdf8;color:#07202d}
+  .abc button.none{background:#241a1a;border-color:#4a2b2b;color:#ff9d95}
+  .locprev{font-size:20px;font-weight:700;text-align:center;color:#38bdf8;margin:6px 0 0;letter-spacing:.04em}
+  .locprev small{display:block;font-size:11px;color:#6b8296;letter-spacing:0;font-weight:400}
   /* ---------- toast ---------- */
-  .toast{
-    position:fixed;left:50%;bottom:86px;transform:translateX(-50%);max-width:calc(100% - 24px);
-    background:#22303c;border:1px solid #33475b;color:#e8eef4;padding:11px 15px;border-radius:11px;
-    font-size:14px;z-index:90;box-shadow:0 6px 22px rgba(0,0,0,.45)
-  }
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);max-width:calc(100% - 24px);background:#22303c;border:1px solid #33475b;color:#e8eef4;padding:11px 15px;border-radius:11px;font-size:14px;z-index:90;box-shadow:0 6px 22px rgba(0,0,0,.45);text-align:center}
   .toast.bad{background:#2a1c1c;border-color:#5a3333;color:#ffc9c4}
+  .toast.good{background:#13251d;border-color:#2c5c42;color:#b8f5d0}
 </style>
 </head>
 <body>
@@ -121,39 +144,66 @@
 <!-- ---------- login ---------- -->
 <div id="login" class="card hidden">
   <h1>Tally<span>Plus</span></h1>
-  <p class="sub" style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Parcel tracking — scan &amp; find</p>
+  <p style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Parcel tracking — scan &amp; find</p>
 
   <label>Account</label>
-  <input id="lg-user" type="text" value="Kito" readonly>
+  <input id="lg-user" type="text" value="Kito" placeholder="Kito" class="mono" autocomplete="username">
 
   <label>Password</label>
   <input id="lg-pass" type="password" placeholder="Password" autocomplete="current-password">
 
   <button id="lg-go" class="big">Sign in</button>
+  <button id="lg-new" class="ghostbtn">＋ Create a new account</button>
   <div id="lg-err" class="err"></div>
+</div>
+
+<!-- ---------- create account ---------- -->
+<div id="newacc" class="card hidden">
+  <h1>New <span>account</span></h1>
+  <p style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Needs the shared Tally password</p>
+
+  <label>Name</label>
+  <input id="na-name" type="text" placeholder="Maxym" autocomplete="off">
+
+  <label>Password for this account</label>
+  <input id="na-pass" type="password" placeholder="Any password" autocomplete="new-password">
+
+  <label>Tally password (required)</label>
+  <input id="na-master" type="password" placeholder="Tally" autocomplete="off">
+
+  <button id="na-go" class="big">Create account</button>
+  <button id="na-back" class="ghostbtn">← Back to sign in</button>
+  <div id="na-err" class="err"></div>
 </div>
 
 <!-- ---------- app ---------- -->
 <div id="app" class="hidden">
   <div class="wrap">
     <div class="top">
-      <h1>Tally<span>Plus</span></h1>
-      <div style="text-align:right">
-        <div class="user" id="who">@Kito</div>
-        <button class="link" id="logout" style="background:none;border:0;color:#7f93a6;font-size:12px;text-decoration:underline;padding:2px 0">Sign out</button>
+      <div class="who">
+        <div class="lvl"><b id="me-lvl">1</b><i>LVL</i></div>
+        <div>
+          <div class="nm" id="me-name">Kito</div>
+          <div class="xp" id="me-xp">0 XP</div>
+          <div class="xpbar"><i id="me-bar"></i></div>
+        </div>
+      </div>
+      <div class="topr">
+        <button id="btn-lb" type="button" title="Leaderboard">🏆</button>
+        <button id="logout" type="button" title="Sign out">⎋</button>
       </div>
     </div>
 
     <div class="searchbox">
       <span class="ic">🔍</span>
-      <input id="q" type="text" class="mono" placeholder="Search by SKU or last digits" autocomplete="off">
+      <input id="q" type="text" class="mono" placeholder="Search SKU, location or who added" autocomplete="off">
       <button class="clr hidden" id="q-clr" type="button">✕</button>
     </div>
 
     <div class="hintbar">
-      <span><b>!</b> — please re-check, older than 5 days</span>
-      <span style="color:#22c55e">green — recently added</span>
-      <span>✔ unlocks after 4 days</span>
+      <span><b>!</b> — older than 5 days</span>
+      <span style="color:#22c55e">green — recent</span>
+      <span>✔ after 4 days</span>
     </div>
     <div class="stats" id="stats"></div>
 
@@ -184,22 +234,34 @@
   var DB = 'https://messenger-2e22b-default-rtdb.firebaseio.com';
   var ROOT = 'tallyplus';
   var SESS = 'tp_sess';
+  var SESS_USER = 'tp_user';
 
-  /* Пароль не хранится в коде открытым текстом — только sha256 от соли и логина.
-     Хеш соответствует паролю Kito / 0506 (длиннее — тоже можно, поле не ограничено). */
-  var ACC = {
-    login: 'Kito',
-    salt: 'tp7f3a91',
+  var OLD_DAYS = 5;              // старше — красный и «!»
+  var CHECK_AFTER_DAYS = 4;      // галочка доступна с 4-го дня
+  var DAY = 24 * 60 * 60 * 1000;
+  var XP_ADD = 10;               // опыт за добавление
+  var XP_CHECK = 5;              // опыт за отметку «проверено»
+  var ADMIN = 'kito';
+  var ABC = 'ABCDEFGHIJKLM';     // буквы локации: A..M
+
+  /* пароль на создание аккаунта; хранится только хеш */
+  var MASTER_SALT = 'tp-master';
+  var MASTER_HASH = '47ec4a56de11bb523276a05c913a67b4c45de5cb23de7e399242a5056ced9020'; // Tally2026
+
+  /* стартовый аккаунт админа; пароль 0506 */
+  var SEED = {
+    login: 'Kito', salt: 'tp7f3a91',
     hash: '431452be51ff412a349a30576173cc936cb402f125f86ee13dcd67afa20bcb77'
   };
 
-  var OLD_DAYS = 5;                  // старше 5 дней — красный и «!»
-  var CHECK_AFTER_DAYS = 4;          // галочка доступна только через 4 дня после добавления/отметки
-  var DAY = 24 * 60 * 60 * 1000;
-
   var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
 
-  /* ==================== sha-256 (ES5, без библиотек) ==================== */
+  /* ==================== sha-256 (ES5) ==================== */
   function sha256(ascii) {
     function rr(v, a) { return (v >>> a) | (v << (32 - a)); }
     var i, j, pw = Math.pow, maxWord = pw(2, 32), result = '', words = [];
@@ -277,27 +339,129 @@
     try { x.send(body === undefined ? null : JSON.stringify(body)); } catch (e) { cb(e); }
   }
 
-  /* ==================== storage ==================== */
-  var state = { items: {}, q: '', busy: false, key: '' };
+  /* ==================== state ==================== */
+  var state = {
+    items: {}, users: {}, q: '', busy: false,
+    me: null, meLogin: '', view: 'list', lbTab: 'day', ready: false
+  };
 
-  function listPath() { return ROOT + '/items'; }
-  function itemPath(id) { return ROOT + '/items/' + id; }
+  function isAdmin() { return String(state.meLogin || '').toLowerCase() === ADMIN; }
+  function ownerOf(it) { return String(it && it.by || '').toLowerCase(); }
+  function canEdit(it) { return isAdmin() || ownerOf(it) === String(state.meLogin || '').toLowerCase(); }
 
-  function loadItems(cb) {
-    xhr('GET', listPath(), undefined, function (err, data) {
+  /* ==================== accounts / XP ==================== */
+  function xpNeed(level) { return 50 * (level - 1) * (level - 1); }   // L2=50, L3=200, L4=450…
+  function levelOf(xp) {
+    var L = 1;
+    while (xpNeed(L + 1) <= (xp || 0) && L < 99) L++;
+    return L;
+  }
+  function levelProgress(xp) {
+    var L = levelOf(xp || 0);
+    var from = xpNeed(L), to = xpNeed(L + 1);
+    var pct = to > from ? Math.round(((xp || 0) - from) / (to - from) * 100) : 0;
+    return { level: L, pct: Math.max(0, Math.min(100, pct)), next: to, cur: xp || 0 };
+  }
+
+  /* разбор метки времени: число, ISO-строка или Firebase Timestamp */
+  function parseDay(v) {
+    if (!v) return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'object' && v.t) v = v.t;
+    var t = Date.parse(v);
+    return isNaN(t) ? 0 : t;
+  }
+
+  function loadAll(cb) {
+    xhr('GET', ROOT, undefined, function (err, data) {
       if (err) { if (cb) cb(err); return; }
-      state.items = (data && typeof data === 'object') ? data : {};
+      var d = data && typeof data === 'object' ? data : {};
+      state.items = d.items && typeof d.items === 'object' ? d.items : {};
+      state.users = d.users && typeof d.users === 'object' ? d.users : {};
+      if (!state.users[SEED.login.toLowerCase()] && !Object.keys(state.users).length) {
+        /* первый запуск: создаём админа Kito */
+        state.users[SEED.login.toLowerCase()] = {
+          login: SEED.login, salt: SEED.salt, hash: SEED.hash,
+          xp: 0, created: new Date().getTime(), admin: true
+        };
+        xhr('PUT', ROOT + '/users/' + SEED.login.toLowerCase(), state.users[SEED.login.toLowerCase()], function () {});
+      }
+      state.ready = true;
       render();
-      if (cb) cb(null, state.items);
+      if (cb) cb(null, d);
     });
   }
+
+  function saveUser(user, cb) {
+    xhr('PUT', ROOT + '/users/' + String(user.login).toLowerCase(), user, function (err) {
+      if (err) return cb && cb(err);
+      state.users[String(user.login).toLowerCase()] = user;
+      cb && cb(null, user);
+    });
+  }
+
+  /* XP пишем прямо в узел пользователя (без гонок с полной перезаписью) */
+  function addXp(login, amount, cb) {
+    var key = String(login || '').toLowerCase();
+    var cur = Number((state.users[key] || {}).xp) || 0;
+    var next = cur + amount;
+    xhr('PATCH', ROOT + '/users/' + key, { xp: next, login: (state.users[key] || {}).login || login }, function (err) {
+      if (!err) {
+        state.users[key] = Object.assign({}, state.users[key] || { login: login }, { xp: next });
+      }
+      cb && cb(err, next);
+    });
+  }
+
+  function findUser(login) {
+    var key = String(login || '').toLowerCase();
+    return state.users[key] || null;
+  }
+
+  /* ==================== employees (who added) ==================== */
+  /* имя автора берём из item.by; статистику считаем по items */
+  function statsFor(login) {
+    var key = String(login || '').toLowerCase();
+    var now = new Date().getTime();
+    var day = 0, week = 0, all = 0, qtyAll = 0;
+    Object.keys(state.items).forEach(function (id) {
+      var it = state.items[id];
+      if (!it || ownerOf(it) !== key) return;
+      var t = Number(it.added) || 0;
+      all += 1;
+      qtyAll += Number(it.qty) || 0;
+      if (now - t <= DAY) day += 1;
+      if (now - t <= 7 * DAY) week += 1;
+    });
+    return { day: day, week: week, all: all, qty: qtyAll };
+  }
+
+  /* все участники: пользователи + те, кто фигурирует в посылках */
+  function allLogins() {
+    var set = {};
+    Object.keys(state.users).forEach(function (k) { if (state.users[k] && state.users[k].login) set[String(state.users[k].login).toLowerCase()] = state.users[k].login; });
+    Object.keys(state.items).forEach(function (id) {
+      var it = state.items[id];
+      if (it && it.by) set[String(it.by).toLowerCase()] = it.by;
+    });
+    var out = [];
+    Object.keys(set).forEach(function (k) { out.push({ key: k, login: set[k], xp: Number((state.users[k] || {}).xp) || 0 }); });
+    return out;
+  }
+
+  /* ==================== items ==================== */
+  function listPath() { return ROOT + '/items'; }
+  function itemPath(id) { return ROOT + '/items/' + id; }
 
   function saveItem(rec, cb) {
     var id = rec.id || ('p' + (new Date().getTime()).toString(36) + Math.random().toString(36).slice(2, 6));
     var out = {
       id: id, sku: rec.sku, loc: rec.loc, qty: rec.qty,
+      by: rec.by || (state.me && state.me.login) || state.meLogin,
+      byLogin: String(rec.by || state.meLogin).toLowerCase(),
       added: rec.added || new Date().getTime(),
-      checked: rec.checked || 0
+      checked: rec.checked || 0,
+      updated: new Date().getTime()
     };
     xhr('PUT', itemPath(id), out, function (err) {
       if (err) return cb(err);
@@ -314,17 +478,12 @@
   }
 
   /* ==================== helpers ==================== */
-  function esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-  function toast(msg, bad) {
+  function toast(msg, kind) {
     var el = document.createElement('div');
-    el.className = 'toast' + (bad ? ' bad' : '');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
     el.innerHTML = msg;
     document.body.appendChild(el);
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, bad ? 3400 : 2300);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, kind === 'bad' ? 3400 : 2300);
   }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function dayStr(ts) {
@@ -338,18 +497,14 @@
   function daysAgo(ts) {
     return Math.floor((new Date().getTime() - (ts || 0)) / DAY);
   }
-  /* возраст записи считаем от последней отметки (галочка) или добавления */
   function ageTs(it) { return Math.max(Number(it.checked) || 0, Number(it.added) || 0); }
   function isOld(it) { return daysAgo(ageTs(it)) >= OLD_DAYS; }
-
-  /* галочку нельзя жать, пока не прошло 4 дня с добавления (или с прошлой отметки) */
   function canCheck(it) { return daysAgo(ageTs(it)) >= CHECK_AFTER_DAYS; }
   function daysLeft(it) {
     var left = CHECK_AFTER_DAYS - daysAgo(ageTs(it));
     return left > 0 ? left : 0;
   }
 
-  /* нормализация для поиска: только буквы/цифры, верхний регистр */
   function norm(s) {
     var v = String(s == null ? '' : s).toUpperCase();
     try { v = v.replace(/[^A-Z0-9А-ЯЁ]/g, ''); }
@@ -357,24 +512,149 @@
     return v;
   }
 
-  /* «умный» поиск: начало, конец, любой фрагмент; несколько слов — все должны найтись */
   function matchItem(it, query) {
     var q = norm(query);
     if (!q) return true;
     var sku = norm(it.sku);
     var loc = norm(it.loc);
-    /* если запрос целиком — ищем подстроку в SKU или локации */
-    if (sku.indexOf(q) >= 0 || loc.indexOf(q) >= 0) return true;
-    /* несколько слов: каждое должно найтись в SKU+локации */
+    var who = norm(it.by);
+    if (sku.indexOf(q) >= 0 || loc.indexOf(q) >= 0 || who.indexOf(q) >= 0) return true;
     var parts = String(query).toUpperCase().split(/[\s,;]+/);
     var ok = true, any = false;
     for (var i = 0; i < parts.length; i++) {
       var p = norm(parts[i]);
       if (!p) continue;
       any = true;
-      if (sku.indexOf(p) < 0 && loc.indexOf(p) < 0) { ok = false; break; }
+      if (sku.indexOf(p) < 0 && loc.indexOf(p) < 0 && who.indexOf(p) < 0) { ok = false; break; }
     }
     return any && ok;
+  }
+
+  /* ==================== location picker ==================== */
+  /* Формат: <4 цифры 9001..9097>-<3 цифры 001..108><A..M>   напр. 9025-042C */
+  var loc = { zone: '', num: '', letter: '' };
+
+  function locValue() {
+    var z = String(loc.zone || '').replace(/\D/g, '').slice(0, 4);
+    var n = String(loc.num || '').replace(/\D/g, '').slice(0, 3);
+    if (!zoneOk(z) || !numOk(n)) return '';      // неполная или неверная — значения нет
+    return z + '-' + n + (loc.letter || '');
+  }
+  function zoneOk(z) {
+    var n = Number(z);
+    return z.length === 4 && n >= 9001 && n <= 9097;
+  }
+  function numOk(n) {
+    var v = Number(n);
+    return n.length === 3 && v >= 1 && v <= 108;
+  }
+
+  function locPicker(initialValue, onChange) {
+    /* разбираем готовое значение, если открываем «редактировать» */
+    var m = /^(\d{4})-(\d{3})([A-M])?$/.exec(String(initialValue || '').trim().toUpperCase());
+    loc = { zone: '', num: '', letter: '' };
+    if (m) { loc.zone = m[1]; loc.num = m[2]; loc.letter = m[3] || ''; }
+
+    var box = document.createElement('div');
+
+    var row = document.createElement('div');
+    row.className = 'locbox';
+    var iZone = document.createElement('input');
+    iZone.type = 'text'; iZone.id = 'loc-zone'; iZone.className = 'mono';
+    iZone.setAttribute('inputmode', 'numeric'); iZone.maxLength = 4;
+    iZone.value = loc.zone || '90';
+    iZone.placeholder = '90**';
+    var sep1 = document.createElement('span'); sep1.className = 'locsep'; sep1.textContent = '-';
+    var iNum = document.createElement('input');
+    iNum.type = 'text'; iNum.id = 'loc-num'; iNum.className = 'mono';
+    iNum.setAttribute('inputmode', 'numeric'); iNum.maxLength = 3;
+    iNum.value = loc.num; iNum.placeholder = '001';
+    row.appendChild(iZone); row.appendChild(sep1); row.appendChild(iNum);
+    box.appendChild(row);
+
+    var abc = document.createElement('div');
+    abc.className = 'abc';
+    box.appendChild(abc);
+
+    var prev = document.createElement('div');
+    prev.className = 'locprev';
+    prev.id = 'loc-prev';
+    box.appendChild(prev);
+
+    function paint() {
+      var v = locValue();
+      var z = String(loc.zone || '');
+      var n = String(loc.num || '');
+      var bad = '';
+      if (z.length === 4 && !zoneOk(z)) bad = 'zone must be 9001–9097';
+      else if (n.length === 3 && !numOk(n)) bad = 'number must be 001–108';
+      else if (!zoneOk(z)) bad = 'zone 9001–9097';
+      else if (!numOk(n)) bad = 'number 001–108';
+      else if (!loc.letter) bad = 'pick a letter A–M (or —)';
+      prev.innerHTML = v
+        ? esc(v) + '<small>location</small>'
+        : '<span style="color:#ff8a80">' + esc(bad) + '</span><small>' + esc(z || '90**') + ' — ' + esc(n || '***') + '</small>';
+      if (onChange) onChange(v);
+      /* буквы показываем только когда есть полный номер */
+      abc.innerHTML = '';
+      if (!numOk(String(loc.num || ''))) return;
+      ABC.split('').forEach(function (ch) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = ch;
+        if (loc.letter === ch) b.className = 'on';
+        b.addEventListener('click', function () {
+          loc.letter = loc.letter === ch ? '' : ch;
+          paint();
+        });
+        abc.appendChild(b);
+      });
+      var nb = document.createElement('button');
+      nb.type = 'button';
+      nb.textContent = '—';
+      nb.className = 'none' + (loc.letter === '' ? '' : '');
+      nb.title = 'No letter';
+      nb.addEventListener('click', function () { loc.letter = ''; paint(); });
+      abc.appendChild(nb);
+    }
+
+    /* зона: 4 цифры, дальше прыжок на номер */
+    iZone.addEventListener('input', function () {
+      var v = iZone.value.replace(/\D/g, '').slice(0, 4);
+      iZone.value = v;
+      loc.zone = v;
+      /* 4 цифры, но вне 9001–9097 — сразу подсвечиваем */
+      iZone.style.borderColor = (v.length === 4 && !zoneOk(v)) ? '#ef4444' : '';
+      if (zoneOk(v)) {
+        iZone.style.borderColor = '';
+        try { iNum.focus(); } catch (e) {}
+      }
+      paint();
+    });
+    /* номер: 3 цифры, дальше показываем буквы и фокусируем первую */
+    iNum.addEventListener('input', function () {
+      var v = iNum.value.replace(/\D/g, '').slice(0, 3);
+      iNum.value = v;
+      loc.num = v;
+      iNum.style.borderColor = (v.length === 3 && !numOk(v)) ? '#ef4444' : '';
+      paint();
+      if (numOk(v)) {
+        var first = abc.querySelector('button');
+        if (first) { try { first.focus(); } catch (e) {} }
+      }
+    });
+    /* Enter в любом поле — подтвердить */
+    var onEnter = function (e) {
+      if (e.keyCode !== 13 || !modalEl) return;
+      e.preventDefault();
+      var btn = modalEl.querySelector('.row2 .go');
+      if (btn && !btn.disabled) btn.click();
+    };
+    iZone.addEventListener('keydown', onEnter);
+    iNum.addEventListener('keydown', onEnter);
+
+    paint();
+    return box;
   }
 
   /* ==================== render ==================== */
@@ -386,7 +666,6 @@
       if (!matchItem(it, state.q)) return;
       out.push(it);
     });
-    /* старые — наверх, чтобы сразу бросались в глаза, дальше по времени добавления */
     out.sort(function (a, b) {
       var ao = isOld(a) ? 0 : 1, bo = isOld(b) ? 0 : 1;
       if (ao !== bo) return ao - bo;
@@ -395,7 +674,17 @@
     return out;
   }
 
+  function renderMe() {
+    var u = findUser(state.meLogin) || { xp: 0 };
+    var p = levelProgress(Number(u.xp) || 0);
+    $('me-lvl').textContent = String(p.level);
+    $('me-name').textContent = (state.me && state.me.login) || state.meLogin || '—';
+    $('me-xp').textContent = p.cur + ' XP' + (isAdmin() ? ' · admin' : '') + ' · next ' + p.next;
+    $('me-bar').style.width = p.pct + '%';
+  }
+
   function render() {
+    if (state.view === 'lb') return renderLeaderboard();
     var list = $('list');
     var items = visibleItems();
     var all = Object.keys(state.items).length;
@@ -407,6 +696,7 @@
       totalQty += Number(it.qty) || 0;
     });
 
+    renderMe();
     $('empty').className = all ? 'empty hidden' : 'empty';
     $('noresult').className = (all && !items.length) ? 'empty' : 'empty hidden';
 
@@ -419,6 +709,7 @@
     list.innerHTML = '';
     items.forEach(function (it) {
       var old = isOld(it);
+      var mine = canEdit(it);
       var row = document.createElement('div');
       row.className = 'row ' + (old ? 'old' : 'fresh');
       row.setAttribute('data-id', it.id);
@@ -439,64 +730,55 @@
 
       var l2 = document.createElement('div');
       l2.className = 'l2';
-      var loc = document.createElement('span');
-      loc.className = 'loc';
-      loc.innerHTML = '<b>' + esc(it.loc || '—') + '</b>';
+      var lc = document.createElement('span');
+      lc.className = 'loc';
+      lc.innerHTML = '<b>' + esc(it.loc || '—') + '</b>';
       var qty = document.createElement('span');
       qty.className = 'qty';
       qty.textContent = '× ' + (Number(it.qty) || 0);
-      l2.appendChild(loc);
+      l2.appendChild(lc);
       l2.appendChild(qty);
 
       var l3 = document.createElement('div');
       l3.className = 'l3';
       var when = document.createElement('span');
-      when.textContent = it.checked
-        ? 'Updated ' + dayStr(it.checked)
-        : 'Added ' + dateStr(it.added);
+      when.innerHTML = '<span class="by">by <b>' + esc(it.by || '?') + '</b></span> · ' +
+        (it.checked ? 'Updated ' + dayStr(it.checked) : 'Added ' + dateStr(it.added));
       var acts = document.createElement('div');
       acts.className = 'acts';
-      var editable = canCheck(it);
-      var chk = document.createElement('button');
-      chk.type = 'button';
-      chk.className = 'check' + (editable ? '' : ' locked');
-      chk.textContent = '✔';
-      chk.title = editable
-        ? 'Still there — mark as checked today'
-        : 'Available in ' + daysLeft(it) + ' day(s) — check after ' + CHECK_AFTER_DAYS + ' days';
-      /* не блокируем кнопку через disabled — иначе не покажется подсказка */
-      if (!editable) chk.setAttribute('aria-disabled', 'true');
-      chk.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (!canCheck(it)) {
-          toast('Check unlocks in ' + daysLeft(it) + ' day(s) — added ' + dayStr(it.added), true);
-          return;
-        }
-        checkItem(it);
-      });
 
-      var edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'edit';
-      edit.textContent = 'Edit';
-      edit.title = 'Change quantity';
-      edit.addEventListener('click', function (e) {
-        e.stopPropagation();
-        editItem(it);
-      });
+      if (mine) {
+        var editable = canCheck(it);
+        var chk = document.createElement('button');
+        chk.type = 'button';
+        chk.className = 'check' + (editable ? '' : ' locked');
+        chk.textContent = '✔';
+        chk.title = editable ? 'Still there — mark checked today' : 'Available in ' + daysLeft(it) + ' day(s)';
+        chk.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (!canCheck(it)) return toast('Check unlocks in ' + daysLeft(it) + ' day(s)', 'bad');
+          checkItem(it);
+        });
+        var edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'edit';
+        edit.textContent = 'Edit';
+        edit.addEventListener('click', function (e) { e.stopPropagation(); editItem(it); });
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'del';
+        del.textContent = '✕';
+        del.addEventListener('click', function (e) { e.stopPropagation(); askDelete(it); });
+        acts.appendChild(chk);
+        acts.appendChild(edit);
+        acts.appendChild(del);
+      } else {
+        var lock = document.createElement('span');
+        lock.style.cssText = 'font-size:11px;color:#5f7488';
+        lock.textContent = 'read-only';
+        acts.appendChild(lock);
+      }
 
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'del';
-      del.textContent = '✕';
-      del.title = 'Remove';
-      del.addEventListener('click', function (e) {
-        e.stopPropagation();
-        askDelete(it);
-      });
-      acts.appendChild(chk);
-      acts.appendChild(edit);
-      acts.appendChild(del);
       l3.appendChild(when);
       l3.appendChild(acts);
 
@@ -508,56 +790,130 @@
     });
   }
 
+  function renderLeaderboard() {
+    renderMe();
+    var tabs = document.createElement('div');
+    var box = $('list');
+    box.innerHTML = '';
+    $('empty').className = 'empty hidden';
+    $('noresult').className = 'empty hidden';
+
+    var head = document.createElement('div');
+    head.className = 'tabs';
+    [['day', 'Today'], ['week', 'Week'], ['all', 'All time'], ['lvl', 'Level']].forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t[1];
+      if (state.lbTab === t[0]) b.className = 'on';
+      b.addEventListener('click', function () { state.lbTab = t[0]; renderLeaderboard(); });
+      head.appendChild(b);
+    });
+    box.appendChild(head);
+    $('stats').textContent = 'Leaderboard — ' + (state.lbTab === 'lvl' ? 'by level' : 'parcels added');
+
+    var rows = allLogins().map(function (u) {
+      var st = statsFor(u.login);
+      return { login: u.login, xp: u.xp, st: st };
+    });
+
+    rows.sort(function (a, b) {
+      if (state.lbTab === 'lvl') {
+        if (b.xp !== a.xp) return b.xp - a.xp;
+      } else if (state.lbTab === 'day') {
+        if (b.st.day !== a.st.day) return b.st.day - a.st.day;
+      } else if (state.lbTab === 'week') {
+        if (b.st.week !== a.st.week) return b.st.week - a.st.week;
+      } else {
+        if (b.st.all !== a.st.all) return b.st.all - a.st.all;
+      }
+      return b.xp - a.xp;
+    });
+
+    rows.forEach(function (r, i) {
+      var el = document.createElement('div');
+      el.className = 'lbrow' + (String(r.login).toLowerCase() === String(state.meLogin).toLowerCase() ? ' me' : '');
+      var rank = document.createElement('div');
+      rank.className = 'lbrank';
+      rank.textContent = (i + 1);
+      var nm = document.createElement('div');
+      nm.className = 'lbname';
+      var p = levelProgress(r.xp);
+      nm.innerHTML = esc(r.login) + '<small>LVL ' + p.level + ' · ' + r.xp + ' XP</small>';
+      var val = document.createElement('div');
+      val.className = 'lbval';
+      var v = state.lbTab === 'day' ? r.st.day : state.lbTab === 'week' ? r.st.week : state.lbTab === 'all' ? r.st.all : p.level;
+      var lbl = state.lbTab === 'lvl' ? 'level' : 'parcels';
+      val.innerHTML = v + '<small>' + lbl + '</small>';
+      el.appendChild(rank);
+      el.appendChild(nm);
+      el.appendChild(val);
+      box.appendChild(el);
+    });
+    if (!rows.length) {
+      box.innerHTML += '<div class="empty"><b>Nobody yet</b></div>';
+    }
+  }
+
   /* ==================== actions ==================== */
   function checkItem(it) {
+    if (!canEdit(it)) return toast('You can only change your own parcels', 'bad');
+    if (!canCheck(it)) return toast('Check unlocks in ' + daysLeft(it) + ' day(s)', 'bad');
     var now = new Date().getTime();
-    saveItem({ id: it.id, sku: it.sku, loc: it.loc, qty: it.qty, added: it.added, checked: now }, function (err) {
-      if (err) return toast('Could not save — check connection', true);
-      render();
-      var row = document.querySelector('.row[data-id="' + it.id + '"]');
-      if (row) { row.className = 'row fresh flash'; }
-      toast('Checked today — timer reset');
+    saveItem({
+      id: it.id, sku: it.sku, loc: it.loc, qty: it.qty, by: it.by,
+      added: it.added, checked: now
+    }, function (err, saved) {
+      if (err) return toast('Could not save — check connection', 'bad');
+      addXp(saved.by, XP_CHECK, function () {
+        render();
+        var row = document.querySelector('.row[data-id="' + it.id + '"]');
+        if (row) row.className = 'row fresh flash';
+        toast('Checked · +' + XP_CHECK + ' XP', 'good');
+      });
     });
   }
 
-  /* ---------- правка количества ---------- */
   function editItem(it) {
+    if (!canEdit(it)) return toast('You can only change your own parcels', 'bad');
     modal({
-      title: 'Edit quantity',
-      sub: it.sku + ' · ' + (it.loc || '—'),
+      title: 'Edit parcel',
+      sub: it.sku + ' · by ' + (it.by || '?'),
       cancelText: 'Cancel',
       okText: 'Save',
       okClass: 'go',
-      body: qtyBox(Number(it.qty) || 1),
+      body: editBox(it, true),
       onOk: function (close) {
         var n = Math.round(Number($('tp-qty-val').textContent) || 0);
-        if (n < 1) { toast('Quantity must be at least 1', true); return; }
+        if (n < 1) { toast('Quantity must be at least 1', 'bad'); return; }
+        var newLoc = String($('ed-loc').value || '').trim().toUpperCase();
+        if (!/^\d{4}-\d{3}[A-M]?$/.test(newLoc)) { toast('Location must look like 9025-042C', 'bad'); return; }
         saveItem({
-          id: it.id, sku: it.sku, loc: it.loc, qty: n,
+          id: it.id, sku: it.sku, loc: newLoc, qty: n, by: it.by,
           added: it.added, checked: it.checked || 0
         }, function (err) {
           close();
-          if (err) return toast('Could not save — check connection', true);
+          if (err) return toast('Could not save — check connection', 'bad');
           render();
           var row = document.querySelector('.row[data-id="' + it.id + '"]');
           if (row) row.className = 'row ' + (isOld(it) ? 'old' : 'fresh') + ' flash';
-          toast('Quantity updated: ' + n);
+          toast('Saved', 'good');
         });
       }
     });
   }
 
   function askDelete(it) {
+    if (!canEdit(it)) return toast('You can only delete your own parcels', 'bad');
     modal({
       title: 'Remove parcel?',
-      sub: 'This only deletes it from TallyPlus.',
+      sub: 'Added by ' + (it.by || '?'),
       lines: [['SKU', it.sku], ['Location', it.loc], ['Quantity', it.qty]],
       okText: 'Remove',
       okClass: 'del',
       onOk: function (close) {
         removeItem(it.id, function (err) {
           close();
-          if (err) return toast('Could not remove', true);
+          if (err) return toast('Could not remove', 'bad');
           render();
           toast('Removed');
         });
@@ -566,42 +922,48 @@
   }
 
   function openDetails(it) {
+    var mine = canEdit(it);
     var lines = [
       ['SKU', it.sku],
       ['Location', it.loc || '—'],
       ['Quantity', it.qty],
+      ['Added by', it.by || '?'],
       ['Added', dateStr(it.added)]
     ];
     if (it.checked) lines.push(['Last checked', dateStr(it.checked)]);
     lines.push(['Age', daysAgo(ageTs(it)) + ' days']);
-
-    var ed = canCheck(it);
-    if (!ed) lines.push(['Check', 'available in ' + daysLeft(it) + ' day(s)']);
+    if (mine) {
+      var ed = canCheck(it);
+      if (!ed) lines.push(['Check', 'available in ' + daysLeft(it) + ' day(s)']);
+    } else {
+      lines.push(['Rights', 'only ' + (it.by || '?') + ' can change it']);
+    }
 
     var box = document.createElement('div');
     box.style.cssText = 'display:flex;gap:8px;margin-top:14px';
-    var bEdit = document.createElement('button');
-    bEdit.type = 'button';
-    bEdit.textContent = 'Edit';
-    bEdit.style.cssText = 'flex:1;padding:12px;font-size:15px';
-    bEdit.addEventListener('click', function () { closeModal(); editItem(it); });
-    var bDel = document.createElement('button');
-    bDel.type = 'button';
-    bDel.className = 'del';
-    bDel.textContent = 'Delete';
-    bDel.style.cssText = 'flex:1;padding:12px;font-size:15px;background:#241a1a;border:1px solid #4a2b2b;color:#ff9d95;border-radius:11px';
-    bDel.addEventListener('click', function () { closeModal(); askDelete(it); });
-    box.appendChild(bEdit);
-    box.appendChild(bDel);
+    if (mine) {
+      var bEdit = document.createElement('button');
+      bEdit.type = 'button';
+      bEdit.textContent = 'Edit';
+      bEdit.style.cssText = 'flex:1;padding:12px;font-size:15px';
+      bEdit.addEventListener('click', function () { closeModal(); editItem(it); });
+      var bDel = document.createElement('button');
+      bDel.type = 'button';
+      bDel.textContent = 'Delete';
+      bDel.style.cssText = 'flex:1;padding:12px;font-size:15px;background:#241a1a;border:1px solid #4a2b2b;color:#ff9d95;border-radius:11px';
+      bDel.addEventListener('click', function () { closeModal(); askDelete(it); });
+      box.appendChild(bEdit);
+      box.appendChild(bDel);
+    }
 
+    var ed2 = mine && canCheck(it);
     modal({
       title: 'Parcel',
       lines: lines,
-      body: box,
-      okText: ed ? 'Mark checked' : 'Close',
-      okClass: 'go',
+      body: mine ? box : null,
+      okText: ed2 ? 'Mark checked' : '',
       cancelText: 'Close',
-      onOk: ed ? function (close) { close(); checkItem(it); } : function (close) { close(); }
+      onOk: ed2 ? function (close) { close(); checkItem(it); } : null
     });
   }
 
@@ -671,103 +1033,7 @@
     return { close: closeModal };
   }
 
-  /* ==================== flow: SKU -> location -> qty ==================== */
-  var flow = { sku: '', loc: '', qty: 1 };
-
-  function normSku(v) {
-    return String(v || '').replace(/\s+/g, '').toUpperCase();
-  }
-
-  function startScan(sku) {
-    flow = { sku: normSku(sku), loc: '', qty: 1 };
-    if (!flow.sku) return;
-    if (flow.sku.length < 3) return toast('That does not look like a SKU', true);
-    stepLocation();
-  }
-
-  function stepLocation() {
-    modal({
-      title: 'Scan the location',
-      sub: 'Parcel ' + flow.sku,
-      lines: [['SKU', flow.sku]],
-      cancelText: 'Cancel',
-      okText: 'Next',
-      okClass: 'go',
-      body: bigInput('Scan or type the location', flow.loc, 'tp-loc', function (v) { flow.loc = v; }),
-      onOk: function (close) {
-        var v = normLoc($('tp-loc').value);
-        if (!v) { $('tp-loc').style.borderColor = '#ef4444'; $('tp-loc').focus(); return; }
-        flow.loc = v;
-        close();
-        stepQty();
-      }
-    });
-    setTimeout(function () { var el = $('tp-loc'); if (el) el.focus(); }, 80);
-  }
-
-  function stepQty() {
-    modal({
-      title: 'How many?',
-      sub: 'Quantity for ' + flow.sku,
-      cancelText: 'Cancel',
-      okText: 'Add to list',
-      okClass: 'go',
-      body: qtyBox(1),
-      onOk: function (close) {
-        var n = Math.round(Number($('tp-qty-val').textContent) || 0);
-        if (n < 1) { toast('Quantity must be at least 1', true); return; }
-        flow.qty = n;
-        close();
-        addParcel();
-      }
-    });
-  }
-
-  function normLoc(v) {
-    return String(v || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function addParcel() {
-    saveItem({ sku: flow.sku, loc: flow.loc, qty: flow.qty, added: new Date().getTime() }, function (err, rec) {
-      if (err) return toast('Could not save — check connection', true);
-      state.q = '';
-      $('q').value = '';
-      $('q-clr').className = 'clr hidden';
-      render();
-      var row = document.querySelector('.row[data-id="' + rec.id + '"]');
-      if (row) {
-        row.className = 'row fresh flash';
-        try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
-      }
-      toast('Added: ' + rec.sku + ' · ' + rec.loc + ' · ' + rec.qty);
-    });
-  }
-
-  /* большое поле ввода: сканер «печатает» и жмёт Enter */
-  function bigInput(label, value, id, onChange) {
-    var box = document.createElement('div');
-    var l = document.createElement('label');
-    l.textContent = label;
-    var inp = document.createElement('input');
-    inp.type = 'text';
-    inp.id = id;
-    inp.value = value || '';
-    inp.setAttribute('autocomplete', 'off');
-    inp.className = 'mono';
-    inp.addEventListener('input', function () { onChange(inp.value); });
-    inp.addEventListener('keydown', function (e) {
-      if (e.keyCode === 13) {
-        e.preventDefault();
-        var btn = modalEl && modalEl.querySelector('.row2 .go');
-        if (btn) btn.click();
-      }
-    });
-    box.appendChild(l);
-    box.appendChild(inp);
-    return box;
-  }
-
-  /* «−  N  +» и быстрые кнопки */
+  /* ==================== quantity box ==================== */
   function qtyBox(start) {
     var box = document.createElement('div');
     var val = document.createElement('div');
@@ -775,6 +1041,7 @@
     val.textContent = String(Math.max(1, Math.round(Number(start) || 1)));
     val.style.cssText = 'font-size:44px;font-weight:700;text-align:center;margin:10px 0 4px;color:#38bdf8';
 
+    var typed = '', lastKey = 0;
     var setv = function (n) {
       if (n < 1) n = 1;
       if (n > 9999) n = 9999;
@@ -784,24 +1051,17 @@
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px';
     var minus = document.createElement('button');
-    minus.type = 'button';
-    minus.textContent = '−';
+    minus.type = 'button'; minus.textContent = '−';
     minus.style.cssText = 'flex:1;padding:14px;font-size:22px';
     minus.addEventListener('click', function () { typed = ''; setv((Number(val.textContent) || 1) - 1); });
     var plus = document.createElement('button');
-    plus.type = 'button';
-    plus.textContent = '+';
+    plus.type = 'button'; plus.textContent = '+';
     plus.style.cssText = 'flex:1;padding:14px;font-size:22px';
     plus.addEventListener('click', function () { typed = ''; setv((Number(val.textContent) || 1) + 1); });
 
-    /* сканер может «напечатать» число — слушаем клавиши */
-    /* Сканер — это клавиатура: он «печатает» цифры и жмёт Enter.
-       Собираем цифры с паузой: если пауза больше 400 мс — начинаем число заново. */
-    var typed = '', lastKey = 0;
     var onKey = function (e) {
       if (!modalEl) return;
-      var k = e.keyCode;
-      var now = new Date().getTime();
+      var k = e.keyCode, now = new Date().getTime();
       if (now - lastKey > 400) typed = '';
       lastKey = now;
       if (k >= 48 && k <= 57) { typed += String.fromCharCode(k); setv(Number(typed) || 1); e.preventDefault(); }
@@ -810,7 +1070,6 @@
       else if (k === 13) { e.preventDefault(); var btn = modalEl && modalEl.querySelector('.row2 .go'); if (btn) btn.click(); }
     };
     document.addEventListener('keydown', onKey, true);
-    /* снимаем слушатель, когда диалог закрыт */
     var unwatch = setInterval(function () {
       if (!modalEl) { document.removeEventListener('keydown', onKey, true); clearInterval(unwatch); }
     }, 300);
@@ -831,23 +1090,123 @@
     box.appendChild(val);
     box.appendChild(row);
     box.appendChild(quick);
-    box.appendChild(label2('type a number or use + / −'));
+    var t = document.createElement('div');
+    t.style.cssText = 'font-size:12px;color:#6b8296;margin-top:8px;text-align:center';
+    t.textContent = 'type a number or use + / −';
+    box.appendChild(t);
     return box;
   }
-  function label2(t) {
-    var d = document.createElement('div');
-    d.style.cssText = 'font-size:12px;color:#6b8296;margin-top:8px;text-align:center';
-    d.textContent = t;
-    return d;
+
+  /* количество + поле локации для правки */
+  function editBox(it, withLoc) {
+    var box = document.createElement('div');
+    if (withLoc) {
+      var l = document.createElement('label');
+      l.textContent = 'Location';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.id = 'ed-loc';
+      inp.className = 'mono';
+      inp.value = it.loc || '';
+      inp.setAttribute('autocomplete', 'off');
+      box.appendChild(l);
+      box.appendChild(inp);
+      var l2 = document.createElement('label');
+      l2.textContent = 'Quantity';
+      box.appendChild(l2);
+    }
+    box.appendChild(qtyBox(Number(it.qty) || 1));
+    return box;
+  }
+
+  /* ==================== flow: SKU -> location -> qty ==================== */
+  var flow = { sku: '', loc: '', qty: 1 };
+
+  function normSku(v) { return String(v || '').replace(/\s+/g, '').toUpperCase(); }
+
+  function startScan(sku) {
+    flow = { sku: normSku(sku), loc: '', qty: 1 };
+    if (!flow.sku) return;
+    if (flow.sku.length < 3) return toast('That does not look like a SKU', 'bad');
+    stepLocation();
+  }
+
+  function stepLocation() {
+    var picker = locPicker('', function (v) { flow.loc = v; });
+    modal({
+      title: 'Scan the location',
+      sub: 'Parcel ' + flow.sku + ' · zone 9001–9097',
+      cancelText: 'Cancel',
+      okText: 'Next',
+      okClass: 'go',
+      body: picker,
+      onOk: function (close) {
+        var v = locValue();
+        if (!/^\d{4}-\d{3}[A-M]$/.test(v)) {
+          var why = 'zone 9001–9097, number 001–108, letter A–M';
+          var z = String(loc.zone || '').replace(/\D/g, '');
+          var n = String(loc.num || '').replace(/\D/g, '');
+          if (z.length < 4) why = 'enter the zone, e.g. 9025';
+          else if (!zoneOk(z)) why = 'zone must be 9001–9097';
+          else if (n.length < 3) why = 'enter the number, e.g. 042';
+          else if (!numOk(n)) why = 'number must be 001–108';
+          else if (!loc.letter) why = 'pick a letter A–M (or —)';
+          toast(why, 'bad');
+          return;
+        }
+        flow.loc = v;
+        close();
+        stepQty();
+      }
+    });
+  }
+
+  function stepQty() {
+    modal({
+      title: 'How many?',
+      sub: 'Quantity for ' + flow.sku,
+      cancelText: 'Cancel',
+      okText: 'Add to list',
+      okClass: 'go',
+      body: qtyBox(1),
+      onOk: function (close) {
+        var n = Math.round(Number($('tp-qty-val').textContent) || 0);
+        if (n < 1) { toast('Quantity must be at least 1', 'bad'); return; }
+        flow.qty = n;
+        close();
+        addParcel();
+      }
+    });
+  }
+
+  function addParcel() {
+    saveItem({
+      sku: flow.sku, loc: flow.loc, qty: flow.qty,
+      by: state.me ? state.me.login : state.meLogin,
+      added: new Date().getTime()
+    }, function (err, rec) {
+      if (err) return toast('Could not save — check connection', 'bad');
+      addXp(rec.by, XP_ADD, function () {
+        state.q = '';
+        $('q').value = '';
+        $('q-clr').className = 'clr hidden';
+        state.view = 'list';
+        render();
+        var row = document.querySelector('.row[data-id="' + rec.id + '"]');
+        if (row) {
+          row.className = 'row fresh flash';
+          try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
+        }
+        toast('Added · +' + XP_ADD + ' XP', 'good');
+      });
+    });
   }
 
   /* ==================== scanner listener ==================== */
-  /* Сканер — это клавиатура: быстро «печатает» SKU и жмёт Enter.
-     Ловим только когда не открыт диалог и не заполнен поиск. */
   function bindScanner() {
     var buf = '', last = 0;
     document.addEventListener('keydown', function (e) {
-      if (modalEl) return;                       // диалог сам обрабатывает Enter
+      if (modalEl) return;
       var t = e.target;
       var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
       var k = e.keyCode;
@@ -855,85 +1214,145 @@
         var code = normSku(buf);
         buf = '';
         if (typing) {
-          /* Enter в поиске — просто применяем фильтр */
           if (t.id === 'q') { state.q = t.value; render(); }
           return;
         }
         if (code.length >= 3) { startScan(code); }
         return;
       }
-      if (k < 32 || k > 126) return;             // только печатные символы
+      if (k < 32 || k > 126) return;
       var now = new Date().getTime();
-      if (now - last > 700) buf = '';            // медленно = человек печатает
+      if (now - last > 700) buf = '';
       last = now;
       buf += String.fromCharCode(k);
     }, true);
   }
 
-  /* ==================== login ==================== */
-  function signedIn() {
-    try {
-      return localStorage.getItem(SESS) === sha(ACC.hash + '|tp');
-    } catch (e) { return false; }
-  }
-  function remember() {
-    try { localStorage.setItem(SESS, sha(ACC.hash + '|tp')); } catch (e) {}
-  }
-  function forget() {
-    try { localStorage.removeItem(SESS); } catch (e) {}
-  }
-
+  /* ==================== auth ==================== */
   function show(id) {
-    ['boot', 'login', 'app'].forEach(function (k) {
+    ['boot', 'login', 'newacc', 'app'].forEach(function (k) {
       var el = $(k);
-      if (el) el.className = el.className.replace(/\s*hidden/g, '') + (k === id ? '' : ' hidden');
+      if (!el) return;
+      el.className = el.className.replace(/\s*hidden/g, '');
+      if (k !== id) el.className += ' hidden';
     });
-    if (id === 'boot') $('boot').className = 'card';
-    if (id === 'login') $('login').className = 'card';
-    if (id === 'app') $('app').className = '';
   }
 
   function enterApp() {
+    state.me = findUser(state.meLogin) || { login: state.meLogin, xp: 0 };
     show('app');
-    loadItems();
+    loadAll(function () {
+      state.me = findUser(state.meLogin) || state.me;
+      render();
+    });
     var q = $('q');
     if (q && !q._bound) {
       q._bound = true;
       q.addEventListener('input', function () {
         state.q = q.value;
         $('q-clr').className = q.value ? 'clr' : 'clr hidden';
+        state.view = 'list';
         render();
       });
-      q.addEventListener('keydown', function (e) {
-        if (e.keyCode === 13) { q.blur(); }
-      });
+      q.addEventListener('keydown', function (e) { if (e.keyCode === 13) { q.blur(); } });
     }
   }
 
   function tryLogin() {
+    var name = String($('lg-user').value || '').trim();
     var pass = $('lg-pass').value;
     $('lg-err').textContent = '';
-    if (!pass) { $('lg-err').textContent = 'Enter the password'; return; }
+    if (!name || !pass) { $('lg-err').textContent = 'Enter name and password'; return; }
     $('lg-go').disabled = true;
-    var h = sha('tp$' + ACC.salt + '$' + ACC.login.toLowerCase() + '$' + pass);
-    setTimeout(function () {
+    xhr('GET', ROOT + '/users', undefined, function (err, users) {
       $('lg-go').disabled = false;
-      if (h !== ACC.hash) {
-        $('lg-err').textContent = 'Wrong password';
-        $('lg-pass').value = '';
-        $('lg-pass').focus();
+      if (err) { $('lg-err').textContent = err.message; return; }
+      users = users && typeof users === 'object' ? users : {};
+      var key = name.toLowerCase();
+      var u = users[key];
+      if (!u) {
+        /* первый запуск: разрешаем войти админом и создать его запись */
+        if (key === ADMIN && sha('tp$' + SEED.salt + '$kito$' + pass) === SEED.hash) {
+          state.users = users;
+          state.meLogin = SEED.login;
+          saveUser({
+            login: SEED.login, salt: SEED.salt, hash: SEED.hash,
+            xp: 0, created: new Date().getTime(), admin: true
+          }, function () {
+            remember();
+            $('lg-pass').value = '';
+            enterApp();
+          });
+          return;
+        }
+        $('lg-err').textContent = 'No such account. Create one.';
         return;
       }
+      if (sha('tp$' + u.salt + '$' + key + '$' + pass) !== u.hash) {
+        $('lg-err').textContent = 'Wrong password';
+        $('lg-pass').value = '';
+        return;
+      }
+      state.users = users;
+      state.meLogin = u.login || name;
       remember();
       $('lg-pass').value = '';
       enterApp();
-    }, 30);
+    });
   }
 
-  /* ==================== boot ==================== */
+  function createAccount() {
+    var name = String($('na-name').value || '').replace(/\s+/g, ' ').trim();
+    var pass = $('na-pass').value;
+    var master = $('na-master').value;
+    $('na-err').textContent = '';
+    if (!/^[A-Za-z0-9_.-]{2,20}$/.test(name)) { $('na-err').textContent = 'Name: letters, digits, . _ - (2–20)'; return; }
+    if (!pass || pass.length < 4) { $('na-err').textContent = 'Password: at least 4 characters'; return; }
+    if (sha('tp-master$' + master) !== MASTER_HASH) { $('na-err').textContent = 'Wrong Tally password'; return; }
+    $('na-go').disabled = true;
+    xhr('GET', ROOT + '/users/' + name.toLowerCase(), undefined, function (err, exists) {
+      $('na-go').disabled = false;
+      if (err) { $('na-err').textContent = err.message; return; }
+      if (exists) { $('na-err').textContent = 'That name is taken'; return; }
+      var salt = Math.random().toString(36).slice(2, 10);
+      var user = {
+        login: name, salt: salt,
+        hash: sha('tp$' + salt + '$' + name.toLowerCase() + '$' + pass),
+        xp: 0, created: new Date().getTime()
+      };
+      saveUser(user, function (e2) {
+        if (e2) { $('na-err').textContent = 'Could not save — ' + e2.message; return; }
+        state.meLogin = name;
+        remember();
+        $('na-name').value = ''; $('na-pass').value = ''; $('na-master').value = '';
+        toast('Account created', 'good');
+        enterApp();
+      });
+    });
+  }
+
+  function remember() {
+    try {
+      localStorage.setItem(SESS_USER, state.meLogin || '');
+      localStorage.setItem(SESS, sha('sess|' + state.meLogin));
+    } catch (e) {}
+  }
+  function remembered() {
+    try {
+      var u = localStorage.getItem(SESS_USER) || '';
+      if (!u) return '';
+      return localStorage.getItem(SESS) === sha('sess|' + u) ? u : '';
+    } catch (e) { return ''; }
+  }
+  function forget() { try { localStorage.removeItem(SESS); localStorage.removeItem(SESS_USER); } catch (e) {} }
+
   function boot() {
-    $('who').textContent = '@' + ACC.login;
-    if (signedIn()) { enterApp(); return; }
+    var u = remembered();
+    if (u) {
+      state.meLogin = u;
+      enterApp();
+      return;
+    }
     show('login');
     setTimeout(function () { try { $('lg-pass').focus(); } catch (e) {} }, 120);
   }
@@ -942,11 +1361,29 @@
   $('lg-go').addEventListener('click', tryLogin);
   $('lg-pass').addEventListener('keydown', function (e) { if (e.keyCode === 13) tryLogin(); });
   $('lg-pass').addEventListener('input', function () { $('lg-err').textContent = ''; });
+
+  $('lg-new').addEventListener('click', function () {
+    show('newacc');
+    setTimeout(function () { try { $('na-name').focus(); } catch (e) {} }, 120);
+  });
+  $('lg-user').addEventListener('keydown', function (e) { if (e.keyCode === 13) $('lg-pass').focus(); });
+  $('na-go').addEventListener('click', createAccount);
+  $('na-back').addEventListener('click', function () { show('login'); });
+  $('na-master').addEventListener('keydown', function (e) { if (e.keyCode === 13) createAccount(); });
+
   $('logout').addEventListener('click', function () {
     forget();
+    state.meLogin = '';
+    state.me = null;
+    state.view = 'list';
     show('login');
-    $('lg-err').textContent = '';
   });
+
+  $('btn-lb').addEventListener('click', function () {
+    state.view = state.view === 'lb' ? 'list' : 'lb';
+    render();
+  });
+
   $('btn-create').addEventListener('click', function () {
     modal({
       title: 'New parcel',
@@ -954,7 +1391,24 @@
       cancelText: 'Cancel',
       okText: 'Next',
       okClass: 'go',
-      body: bigInput('SKU', '', 'tp-sku', function () {}),
+      body: (function () {
+        var b = document.createElement('div');
+        var l = document.createElement('label');
+        l.textContent = 'SKU';
+        var inp = document.createElement('input');
+        inp.type = 'text'; inp.id = 'tp-sku'; inp.className = 'mono';
+        inp.setAttribute('autocomplete', 'off');
+        inp.addEventListener('keydown', function (e) {
+          if (e.keyCode === 13 && modalEl) {
+            e.preventDefault();
+            var btn = modalEl.querySelector('.row2 .go');
+            if (btn) btn.click();
+          }
+        });
+        b.appendChild(l);
+        b.appendChild(inp);
+        return b;
+      })(),
       onOk: function (close) {
         var v = normSku($('tp-sku').value);
         if (v.length < 3) { $('tp-sku').style.borderColor = '#ef4444'; $('tp-sku').focus(); return; }
@@ -964,12 +1418,19 @@
     });
     setTimeout(function () { var el = $('tp-sku'); if (el) el.focus(); }, 80);
   });
+
   $('btn-scan').addEventListener('click', function () {
     toast('Ready — scan the parcel now');
     var buf = '';
-    var h = function (e) { if (e.keyCode === 13 && normSku(buf).length >= 3) { document.removeEventListener('keydown', h, true); startScan(buf); } else if (e.keyCode >= 32) buf += String.fromCharCode(e.keyCode); };
+    var h = function (e) {
+      if (e.keyCode === 13 && normSku(buf).length >= 3) {
+        document.removeEventListener('keydown', h, true);
+        startScan(buf);
+      } else if (e.keyCode >= 32) buf += String.fromCharCode(e.keyCode);
+    };
     document.addEventListener('keydown', h, true);
   });
+
   $('q-clr').addEventListener('click', function () {
     state.q = '';
     $('q').value = '';
@@ -981,14 +1442,19 @@
   bindScanner();
   boot();
 
-  /* для тестов из консоли */
+  /* для тестов */
   window.TP = {
     state: state, sha: sha, match: matchItem, norm: norm, render: render,
-    load: loadItems, save: saveItem, remove: removeItem, isOld: isOld,
+    load: loadAll, save: saveItem, remove: removeItem, isOld: isOld,
+    canCheck: canCheck, canEdit: canEdit, daysLeft: daysLeft,
+    levelOf: levelOf, levelProgress: levelProgress, xpNeed: xpNeed,
+    statsFor: statsFor, locValue: locValue, locPicker: locPicker,
     startScan: startScan, boot: boot, enterApp: enterApp, tryLogin: tryLogin,
-    canCheck: canCheck, daysLeft: daysLeft, editItem: editItem,
-    config: { DB: DB, ACC: ACC, OLD_DAYS: OLD_DAYS, CHECK_AFTER_DAYS: CHECK_AFTER_DAYS }
+    createAccount: createAccount, modal: function () { return modalEl; },
+    config: { DB: DB, ADMIN: ADMIN, OLD_DAYS: OLD_DAYS, CHECK_AFTER_DAYS: CHECK_AFTER_DAYS, XP_ADD: XP_ADD, XP_CHECK: XP_CHECK, MASTER_HASH: MASTER_HASH }
   };
+  /* показать форму создания аккаунта из консоли/тестов */
+  window.TP.showCreate = function () { show('newacc'); };
 })();
 </script>
 </body>
