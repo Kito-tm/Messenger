@@ -72,6 +72,9 @@
   .row .acts button{padding:5px 9px;font-size:12px}
   .row .acts .check{color:#6ee7a8;border-color:#254b39;background:#13251d}
   .row .acts .del{color:#ff9d95;border-color:#4a2b2b;background:#241a1a}
+  .row .acts .edit{color:#8fd2ff;border-color:#25455b;background:#132430}
+  .row .acts .check.locked{color:#4a5a68;border-color:#26343f;background:#131c24;cursor:not-allowed}
+  .row .hint{font-size:11px;color:#5f7488;margin-left:4px}
   .row.flash{animation:flash .9s ease-out 2}
   @keyframes flash{0%{background:#1d3a2b}100%{background:#16212c}}
   .empty{text-align:center;color:#7f93a6;padding:34px 14px;font-size:15px;line-height:1.6}
@@ -150,6 +153,7 @@
     <div class="hintbar">
       <span><b>!</b> — please re-check, older than 5 days</span>
       <span style="color:#22c55e">green — recently added</span>
+      <span>✔ unlocks after 4 days</span>
     </div>
     <div class="stats" id="stats"></div>
 
@@ -190,6 +194,7 @@
   };
 
   var OLD_DAYS = 5;                  // старше 5 дней — красный и «!»
+  var CHECK_AFTER_DAYS = 4;          // галочка доступна только через 4 дня после добавления/отметки
   var DAY = 24 * 60 * 60 * 1000;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -337,6 +342,13 @@
   function ageTs(it) { return Math.max(Number(it.checked) || 0, Number(it.added) || 0); }
   function isOld(it) { return daysAgo(ageTs(it)) >= OLD_DAYS; }
 
+  /* галочку нельзя жать, пока не прошло 4 дня с добавления (или с прошлой отметки) */
+  function canCheck(it) { return daysAgo(ageTs(it)) >= CHECK_AFTER_DAYS; }
+  function daysLeft(it) {
+    var left = CHECK_AFTER_DAYS - daysAgo(ageTs(it));
+    return left > 0 ? left : 0;
+  }
+
   /* нормализация для поиска: только буквы/цифры, верхний регистр */
   function norm(s) {
     var v = String(s == null ? '' : s).toUpperCase();
@@ -444,15 +456,35 @@
         : 'Added ' + dateStr(it.added);
       var acts = document.createElement('div');
       acts.className = 'acts';
+      var editable = canCheck(it);
       var chk = document.createElement('button');
       chk.type = 'button';
-      chk.className = 'check';
+      chk.className = 'check' + (editable ? '' : ' locked');
       chk.textContent = '✔';
-      chk.title = 'Still there — mark as checked today';
+      chk.title = editable
+        ? 'Still there — mark as checked today'
+        : 'Available in ' + daysLeft(it) + ' day(s) — check after ' + CHECK_AFTER_DAYS + ' days';
+      /* не блокируем кнопку через disabled — иначе не покажется подсказка */
+      if (!editable) chk.setAttribute('aria-disabled', 'true');
       chk.addEventListener('click', function (e) {
         e.stopPropagation();
+        if (!canCheck(it)) {
+          toast('Check unlocks in ' + daysLeft(it) + ' day(s) — added ' + dayStr(it.added), true);
+          return;
+        }
         checkItem(it);
       });
+
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'edit';
+      edit.textContent = 'Edit';
+      edit.title = 'Change quantity';
+      edit.addEventListener('click', function (e) {
+        e.stopPropagation();
+        editItem(it);
+      });
+
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'del';
@@ -463,6 +495,7 @@
         askDelete(it);
       });
       acts.appendChild(chk);
+      acts.appendChild(edit);
       acts.appendChild(del);
       l3.appendChild(when);
       l3.appendChild(acts);
@@ -484,6 +517,33 @@
       var row = document.querySelector('.row[data-id="' + it.id + '"]');
       if (row) { row.className = 'row fresh flash'; }
       toast('Checked today — timer reset');
+    });
+  }
+
+  /* ---------- правка количества ---------- */
+  function editItem(it) {
+    modal({
+      title: 'Edit quantity',
+      sub: it.sku + ' · ' + (it.loc || '—'),
+      cancelText: 'Cancel',
+      okText: 'Save',
+      okClass: 'go',
+      body: qtyBox(Number(it.qty) || 1),
+      onOk: function (close) {
+        var n = Math.round(Number($('tp-qty-val').textContent) || 0);
+        if (n < 1) { toast('Quantity must be at least 1', true); return; }
+        saveItem({
+          id: it.id, sku: it.sku, loc: it.loc, qty: n,
+          added: it.added, checked: it.checked || 0
+        }, function (err) {
+          close();
+          if (err) return toast('Could not save — check connection', true);
+          render();
+          var row = document.querySelector('.row[data-id="' + it.id + '"]');
+          if (row) row.className = 'row ' + (isOld(it) ? 'old' : 'fresh') + ' flash';
+          toast('Quantity updated: ' + n);
+        });
+      }
     });
   }
 
@@ -514,13 +574,34 @@
     ];
     if (it.checked) lines.push(['Last checked', dateStr(it.checked)]);
     lines.push(['Age', daysAgo(ageTs(it)) + ' days']);
+
+    var ed = canCheck(it);
+    if (!ed) lines.push(['Check', 'available in ' + daysLeft(it) + ' day(s)']);
+
+    var box = document.createElement('div');
+    box.style.cssText = 'display:flex;gap:8px;margin-top:14px';
+    var bEdit = document.createElement('button');
+    bEdit.type = 'button';
+    bEdit.textContent = 'Edit';
+    bEdit.style.cssText = 'flex:1;padding:12px;font-size:15px';
+    bEdit.addEventListener('click', function () { closeModal(); editItem(it); });
+    var bDel = document.createElement('button');
+    bDel.type = 'button';
+    bDel.className = 'del';
+    bDel.textContent = 'Delete';
+    bDel.style.cssText = 'flex:1;padding:12px;font-size:15px;background:#241a1a;border:1px solid #4a2b2b;color:#ff9d95;border-radius:11px';
+    bDel.addEventListener('click', function () { closeModal(); askDelete(it); });
+    box.appendChild(bEdit);
+    box.appendChild(bDel);
+
     modal({
       title: 'Parcel',
       lines: lines,
-      okText: 'Mark checked',
+      body: box,
+      okText: ed ? 'Mark checked' : 'Close',
       okClass: 'go',
       cancelText: 'Close',
-      onOk: function (close) { close(); checkItem(it); }
+      onOk: ed ? function (close) { close(); checkItem(it); } : function (close) { close(); }
     });
   }
 
@@ -631,7 +712,7 @@
       cancelText: 'Cancel',
       okText: 'Add to list',
       okClass: 'go',
-      body: qtyBox(),
+      body: qtyBox(1),
       onOk: function (close) {
         var n = Math.round(Number($('tp-qty-val').textContent) || 0);
         if (n < 1) { toast('Quantity must be at least 1', true); return; }
@@ -687,11 +768,11 @@
   }
 
   /* «−  N  +» и быстрые кнопки */
-  function qtyBox() {
+  function qtyBox(start) {
     var box = document.createElement('div');
     var val = document.createElement('div');
     val.id = 'tp-qty-val';
-    val.textContent = '1';
+    val.textContent = String(Math.max(1, Math.round(Number(start) || 1)));
     val.style.cssText = 'font-size:44px;font-weight:700;text-align:center;margin:10px 0 4px;color:#38bdf8';
 
     var setv = function (n) {
@@ -905,7 +986,8 @@
     state: state, sha: sha, match: matchItem, norm: norm, render: render,
     load: loadItems, save: saveItem, remove: removeItem, isOld: isOld,
     startScan: startScan, boot: boot, enterApp: enterApp, tryLogin: tryLogin,
-    config: { DB: DB, ACC: ACC, OLD_DAYS: OLD_DAYS }
+    canCheck: canCheck, daysLeft: daysLeft, editItem: editItem,
+    config: { DB: DB, ACC: ACC, OLD_DAYS: OLD_DAYS, CHECK_AFTER_DAYS: CHECK_AFTER_DAYS }
   };
 })();
 </script>
