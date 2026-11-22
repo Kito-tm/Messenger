@@ -1,357 +1,521 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Kitogram</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Kitogram">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=K&background=248bcf&color=fff&size=180">
-
-    <style>
-        /* СТРОГАЯ ТЕМНАЯ ТЕМА TELEGRAM */
-        :root {
-            --bg-main: #0e1621;
-            --bg-box: #182533;
-            --bg-sidebar: #17212b;
-            --bg-chat: #0e1621;
-            --bg-chat-hdr: #17212b;
-            --bg-input: #17212b;
-            --text-main: #f5f5f5;
-            --text-muted: #708499;
-            --tg-blue: #248bcf;
-            --tg-blue-hover: #1d72a6;
-            --my-msg: #2b5278;
-            --other-msg: #182533;
-            --border-col: #101924;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-
-        /* ЭКРАН ВХОДА */
-        #login-screen { display: flex; flex-direction: column; width: 100%; max-width: 360px; padding: 25px; background: var(--bg-box); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); text-align: center; border: 1px solid var(--border-col); }
-        #login-screen h2 { margin-bottom: 20px; font-weight: 500; font-size: 22px; color: #fff; }
-        .avatar-picker { position: relative; width: 90px; height: 90px; margin: 0 auto 20px auto; cursor: pointer; }
-        #login-preview { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 2px solid var(--tg-blue); background: #2b5278; }
-        .avatar-picker .camera-icon { position: absolute; bottom: 0; right: 0; background: var(--tg-blue); width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px; color: #fff; border: 2px solid var(--bg-box); }
-        #login-screen input[type="text"], #login-screen input[type="password"] { width: 100%; padding: 12px 16px; margin-bottom: 12px; background: var(--bg-main); border: 1px solid var(--border-col); border-radius: 8px; color: #fff; font-size: 15px; outline: none; transition: border 0.2s; }
-        #login-screen input:focus { border-color: var(--tg-blue); }
-        .remember-row { display: flex; align-items: center; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; cursor: pointer; text-align: left; }
-        .remember-row input { margin-right: 8px; width: 16px; height: 16px; accent-color: var(--tg-blue); }
-        #login-btn { width: 100%; padding: 13px; background: var(--tg-blue); border: none; border-radius: 8px; color: #fff; font-size: 16px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
-        #login-btn:hover { background: var(--tg-blue-hover); }
-
-        /* ОСНОВНОЙ КОНТЕЙНЕР */
-        #app-container { display: flex; width: 100vw; height: 100vh; background: var(--bg-main); overflow: hidden; position: relative; }
-        .hidden { display: none !important; }
-
-        /* БОКОВАЯ ПАНЕЛЬ */
-        #sidebar { width: 320px; height: 100%; background: var(--bg-sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--border-col); z-index: 10; flex-shrink: 0; }
-        .sidebar-header { display: flex; align-items: center; padding: 14px 16px; gap: 14px; border-bottom: 1px solid var(--border-col); }
-        #burger-menu-btn { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px; transition: color 0.2s; }
-        #burger-menu-btn:hover { color: #fff; }
-        .search-container { flex: 1; position: relative; }
-        .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; }
-        #search-input { width: 100%; padding: 8px 12px 8px 36px; background: var(--bg-main); border: 1px solid transparent; border-radius: 20px; color: #fff; font-size: 14px; outline: none; }
-        #search-input:focus { border-color: var(--tg-blue); }
-
-        #chats-list { flex: 1; overflow-y: auto; }
-        .chat-item { display: flex; align-items: center; padding: 10px 14px; gap: 12px; cursor: pointer; transition: background 0.15s; position: relative; border-bottom: 1px solid rgba(16,25,36,0.2); }
-        .chat-item:hover { background: #202b36; }
-        .chat-item.active { background: #2b394a; }
-        .chat-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #5288c1; flex-shrink: 0; }
-        .status-dot { width: 11px; height: 11px; background: #4fce5d; border-radius: 50%; border: 2px solid var(--bg-sidebar); position: absolute; bottom: 10px; left: 45px; }
-        .chat-info { flex: 1; min-width: 0; }
-        .chat-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-        .chat-title { font-weight: 500; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-time { font-size: 12px; color: var(--text-muted); }
-        .chat-last-msg { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .badge-unread { background: #4082bc; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 12px; min-width: 20px; text-align: center; }
-
-        /* ОКНО ЧАТА */
-        #chat-window { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); height: 100%; position: relative; }
-        .chat-header { height: 56px; background: var(--bg-chat-hdr); display: flex; align-items: center; padding: 0 16px; gap: 12px; border-bottom: 1px solid var(--border-col); z-index: 5; }
-        #back-to-sidebar { background: none; border: none; color: var(--tg-blue); font-size: 16px; cursor: pointer; display: none; align-items: center; gap: 6px; }
-        #active-chat-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
-        .header-text { flex: 1; min-width: 0; }
-        #active-chat-title { font-weight: 500; font-size: 16px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        #active-chat-status { font-size: 12.5px; margin-top: 1px; }
-        .status-online { color: #528ddb; }
-        .status-offline { color: var(--text-muted); }
-        #chat-actions-btn { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 6px; }
-        #chat-actions-btn:hover { color: #fff; }
-
-        /* ЗОНА СООБЩЕНИЙ */
-        #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-blend-mode: overlay; background-color: #0e1621; }
-        .date-divider { align-self: center; background: rgba(24,37,51,0.7); color: #fff; font-size: 12px; padding: 4px 12px; border-radius: 12px; margin: 8px 0; font-weight: 500; backdrop-filter: blur(2px); }
-        .welcome-notif { align-self: center; background: rgba(24,37,51,0.5); padding: 10px 16px; border-radius: 10px; font-size: 13.5px; color: #b2c1d4; max-width: 80%; text-align: center; margin-top: 40px; border: 1px solid rgba(255,255,255,0.03); }
-        
-        .message { max-width: 65%; padding: 8px 12px; border-radius: 12px; position: relative; display: flex; flex-direction: column; font-size: 14.5px; line-height: 1.4; animation: fadeInMsg 0.15s ease-out; word-break: break-word; }
-        @keyframes fadeInMsg { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .my-message { background: var(--my-msg); color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .other-message { background: var(--other-msg); color: #fff; align-self: flex-start; border-bottom-left-radius: 2px; }
-        
-        .message .author { font-weight: 600; font-size: 12.5px; margin-bottom: 3px; cursor: pointer; }
-        .message .text { white-space: pre-wrap; }
-        .msg-meta { display: flex; justify-content: flex-end; align-items: center; gap: 3px; font-size: 10.5px; color: rgba(255,255,255,0.45); margin-top: 3px; align-self: flex-end; pointer-events: none; }
-        
-        /* Медиа элементы */
-        .chat-image { max-width: 100%; max-height: 240px; border-radius: 8px; margin-top: 2px; cursor: pointer; object-fit: cover; }
-        audio { max-width: 240px; height: 36px; margin-top: 4px; filter: invert(0.9) hue-rotate(180deg); }
-        .video-circle { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; background: #000; border: 2px solid var(--tg-blue); margin-top: 4px; cursor: pointer; }
-
-        /* ИНПУТ-БАР */
-        #message-form { display: flex; align-items: center; padding: 8px 12px; background: var(--bg-chat-hdr); gap: 10px; border-top: 1px solid var(--border-col); z-index: 5; }
-        #attach-btn, #action-btn { background: none; border: none; color: var(--text-muted); font-size: 19px; cursor: pointer; padding: 4px; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center; transition: color 0.15s; }
-        #attach-btn:hover, #action-btn:hover { color: var(--tg-blue); }
-        #message-input { flex: 1; padding: 10px 16px; background: var(--bg-main); border: 1px solid transparent; border-radius: 20px; color: #fff; font-size: 14.5px; outline: none; }
-        #message-input:focus { border-color: rgba(36,139,207,0.4); }
-
-        /* Индикаторы записи и оверлеи */
-        #preview-overlay { background: #16202c; padding: 8px 14px; border-bottom: 1px solid var(--border-col); display: flex; align-items: center; gap: 12px; color: #fff; }
-        .preview-delete-btn { background: none; border: none; color: #ef5350; font-size: 16px; cursor: pointer; }
-        .reply-citation, .fwd-citation { background: rgba(0,0,0,0.15); border-left: 3px solid var(--tg-blue); padding: 4px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 12.5px; cursor: pointer; }
-        .reply-author { font-weight: 600; color: #64b5f6; }
-        
-        #recording-overlay { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; color: #ef5350; font-weight: 500; font-size: 14.5px; }
-        #record-timer { display: flex; align-items: center; gap: 6px; animation: blink 1s infinite alternate; }
-        #record-timer::before { content: ''; width: 8px; height: 8px; background: #ef5350; border-radius: 50%; }
-        @keyframes blink { from { opacity: 0.4; } to { opacity: 1; } }
-        .swipe-hint { color: var(--text-muted); font-size: 13px; font-weight: 400; }
-        
-        #action-btn.recording { color: #ef5350; scale: 1.2; animation: pulse 1.2s infinite; }
-        #action-btn.locked-recording { color: #ff9800; scale: 1.1; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        
-        .video-circle-preview { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 1px solid var(--tg-blue); }
-        #typing-indicator { height: 16px; font-size: 12px; color: #528ddb; padding: 0 16px; background: transparent; margin-bottom: 2px; }
-
-        /* КОНТЕКСТНОЕ МЕНЮ */
-        #context-menu { background: #182533; border: 1px solid var(--border-col); border-radius: 8px; width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); overflow: hidden; display: none; }
-        .context-item { padding: 10px 14px; font-size: 13.5px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
-        .context-item:hover { background: #243444; }
-        .context-item.danger { color: #ef5350; }
-
-        /* РЕАКЦИИ */
-        .reactions-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-        .reaction-badge { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 2px 6px; font-size: 11.5px; cursor: pointer; transition: background 0.15s, transform 0.1s; display: inline-flex; align-items: center; }
-        .reaction-badge:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); }
-
-        /* БУРГЕР-МЕНЮ (БОКОВАЯ ШТОРКА) */
-        #burger-menu { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100; display: none; }
-        .burger-content { position: absolute; top: 0; left: -260px; width: 260px; height: 100%; background: var(--bg-sidebar); border-right: 1px solid var(--border-col); transition: left 0.25s ease-out; display: flex; flex-direction: column; padding: 20px 0; }
-        .burger-profile { padding: 0 20px 16px 20px; border-bottom: 1px solid var(--border-col); text-align: left; }
-        #burger-my-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
-        #burger-my-name { font-weight: 500; font-size: 16px; color: #fff; }
-        #burger-my-username { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-        .burger-item { padding: 12px 20px; font-size: 14.5px; color: #e5edf5; cursor: pointer; display: flex; align-items: center; gap: 14px; transition: background 0.15s; }
-        .burger-item:hover { background: #202b36; }
-
-        /* МОДАЛЬНЫЕ ОКНА */
-        main-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 200; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
-        .modal-box { background: var(--bg-box); border: 1px solid var(--border-col); width: 90%; max-width: 340px; padding: 20px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .modal-box h3 { font-weight: 500; font-size: 18px; margin-bottom: 16px; color: #fff; }
-        .modal-box input[type="text"] { width: 100%; padding: 10px 12px; background: var(--bg-main); border: 1px solid var(--border-col); border-radius: 6px; color: #fff; font-size: 14.5px; outline: none; margin-bottom: 12px; }
-        .modal-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; color: #b2c1d4; }
-        .modal-row input[type="color"] { background: none; border: none; width: 40px; height: 26px; cursor: pointer; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-        .modal-buttons button { padding: 8px 14px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
-        .btn-primary { background: var(--tg-blue); color: #fff; }
-        .btn-primary:hover { background: var(--tg-blue-hover); }
-        .btn-secondary { background: transparent; color: var(--text-muted); }
-        .btn-secondary:hover { color: #fff; }
-
-        /* Адаптивность для мобильных */
-        @media (max-width: 600px) {
-            #sidebar { width: 100%; }
-            #chat-window { display: none; position: absolute; top:0; left:0; width:100%; height:100%; z-index:20; }
-            #app-container.chat-active #chat-window { display: flex; }
-            #back-to-sidebar { display: flex; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17212b">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="Kitogram — мессенджер с глубокой персонализацией: живые обложки профиля, анимированные аватарки, рамки и темы.">
+<title>Kitogram</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kitogram">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="login-screen">
-        <h2>Вход в Kitogram</h2>
-        <div class="avatar-picker" onclick="document.getElementById('avatar-file').click()">
-            <img id="login-preview" src="https://ui-avatars.com/api/?name=K&background=248bcf&color=fff&size=90">
-            <div class="camera-icon"><i class="fa-solid fa-camera"></i></div>
+<!-- ================= Иконки ================= -->
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 12.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 1 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 1 1-2.4-2.4l7.9-7.9"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3M8 22h8"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="14" r="3.4"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16.5l-5.5-5.5L6 21"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 7l-6 5 6 5"/><path d="M3 12h10a8 8 0 0 1 8 8"/></symbol>
+  <symbol id="i-forward" viewBox="0 0 24 24"><path d="M15 7l6 5-6 5"/><path d="M21 12H11a8 8 0 0 0-8 8"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21s-7.3-4.7-9.4-9.2A5.3 5.3 0 0 1 12 6.1a5.3 5.3 0 0 1 9.4 5.7C19.3 16.3 12 21 12 21z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.3A9.7 9.7 0 0 1 12 6c6 0 9 6 9 6a17.7 17.7 0 0 1-3.1 3.8"/><path d="M6.7 6.7C4 8.4 3 12 3 12s3 6 9 6a9.4 9.4 0 0 0 3.9-.8"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6"/><path d="M17.6 14.2A6.5 6.5 0 0 1 21.5 20"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.3"/><circle cx="8" cy="17" r="2.3"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h9"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7V5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.1"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 11l6-3.5v9L15.5 13z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 4v2H6v-2l4-4-1-6z"/><path d="M12 15v6"/></symbol>
+  <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M18 15V10a6 6 0 0 0-9.3-5.1"/><path d="M6 9v6l-2 3h13"/><path d="M9.5 21a3 3 0 0 0 5 0"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.8 0-1.6-1.7-1.7-1.7-3.2 0-1 .8-1.7 1.9-1.7H16a5 5 0 0 0 5-5c0-3.6-4-6.3-9-6.3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="7.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3z"/><path d="M18.5 15l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9.9-2.4z"/></symbol>
+  <symbol id="i-cover" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 14l4.5-4 5 4.5L16 11l5 4"/><circle cx="8" cy="9" r="1.3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M17 12v3M20 12v2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M14 6l4 4"/></symbol>
+  <symbol id="i-gif" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M9 10.5H7.2a1.7 1.7 0 0 0-1.7 1.7v1.6c0 .9.7 1.7 1.7 1.7H9V14H7.8"/><path d="M12 10.5v5M15 15.5v-5h2.2a1.5 1.5 0 0 1 0 3H15"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-font" viewBox="0 0 24 24"><path d="M5 19L11 5l6 14"/><path d="M7.5 14h7"/></symbol>
+  <symbol id="i-wall" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 15l4-3.5 4 3.5 3-2.5 7 5.5"/></symbol>
+</svg>
+
+<!-- ================= Заставка ================= -->
+<div id="splash" class="splash">
+  <img class="splash-logo" src="icons/icon-192.png" alt="Kitogram">
+  <div class="splash-name">Kitogram</div>
+  <div class="splash-spinner"></div>
+  <div class="splash-note" id="splash-note"></div>
+</div>
+
+<!-- ================= Вход / Регистрация ================= -->
+<div id="auth-screen" class="login-screen hidden">
+  <div class="login-card auth-card">
+    <div class="brand">
+      <img class="brand-logo" src="icons/icon-192.png" alt="">
+      <div class="brand-text">
+        <h1>Kitogram</h1>
+        <p>твой мессенджер</p>
+      </div>
+    </div>
+
+    <div class="auth-tabs" role="tablist">
+      <button type="button" class="auth-tab active" data-auth-tab="login" role="tab">Вход</button>
+      <button type="button" class="auth-tab" data-auth-tab="register" role="tab">Регистрация</button>
+    </div>
+
+    <!-- Вход -->
+    <form id="auth-form-login" class="auth-form" novalidate>
+      <label class="field">
+        <span>Логин</span>
+        <span class="login-input"><b>@</b><input id="li-login" type="text" autocomplete="username" spellcheck="false" maxlength="24" placeholder="kito_god" required></span>
+      </label>
+      <label class="field">
+        <span>Пароль</span>
+        <input id="li-pass" type="password" autocomplete="current-password" maxlength="64" placeholder="••••••••" required>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="li-remember" checked>
+        <span>Запомнить на этом устройстве</span>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block" id="li-submit">Войти</button>
+      <button type="button" class="link-btn" id="li-forgot">Забыли пароль?</button>
+      <p class="login-error hidden" id="li-error"></p>
+    </form>
+
+    <!-- Регистрация -->
+    <form id="auth-form-register" class="auth-form hidden" novalidate>
+      <div class="reg-avatar-row">
+        <button type="button" class="login-avatar-btn" id="rg-avatar-btn" title="Аватар (фото или GIF)">
+          <img id="rg-avatar" alt="">
+          <span class="login-cam"><svg class="ic"><use href="#i-camera"/></svg></span>
+        </button>
+        <input type="file" id="rg-avatar-file" accept="image/*" hidden>
+      </div>
+      <label class="field">
+        <span>Имя</span>
+        <input id="rg-name" type="text" maxlength="32" placeholder="Как вас показывать" autocomplete="nickname">
+      </label>
+      <label class="field">
+        <span>Логин</span>
+        <span class="login-input"><b>@</b><input id="rg-login" type="text" autocomplete="username" spellcheck="false" maxlength="24" placeholder="kito_god" required></span>
+      </label>
+      <label class="field">
+        <span>Пароль</span>
+        <input id="rg-pass" type="password" autocomplete="new-password" maxlength="64" placeholder="минимум 6 символов" required>
+      </label>
+      <label class="field">
+        <span>Повторите пароль</span>
+        <input id="rg-pass2" type="password" autocomplete="new-password" maxlength="64" placeholder="ещё раз" required>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block" id="rg-submit">Создать аккаунт</button>
+      <p class="login-note">Логин: латиница, цифры, <b>_ . -</b> — от 3 до 24 символов. Один символ <b>@</b> добавляется автоматически.</p>
+      <p class="login-error hidden" id="rg-error"></p>
+    </form>
+
+    <!-- Восстановление пароля -->
+    <form id="auth-form-recover" class="auth-form hidden" novalidate>
+      <p class="login-note" style="text-align:left;margin:0 0 14px">Введите логин, код восстановления (он был выдан при регистрации и всегда доступен в настройках) и новый пароль.</p>
+      <label class="field"><span>Логин</span><span class="login-input"><b>@</b><input id="rc-login" type="text" spellcheck="false" maxlength="24" required></span></label>
+      <label class="field"><span>Код восстановления</span><input id="rc-code" type="text" spellcheck="false" maxlength="24" placeholder="KITO-XXXX-XXXX" required></label>
+      <label class="field"><span>Новый пароль</span><input id="rc-pass" type="password" maxlength="64" required></label>
+      <button type="submit" class="btn btn-primary btn-block" id="rc-submit">Сменить пароль</button>
+      <button type="button" class="link-btn" id="rc-back">← Назад ко входу</button>
+      <p class="login-error hidden" id="rc-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ================= Приложение ================= -->
+<div id="app" class="app hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <button class="icon-btn" id="open-menu" title="Меню" aria-label="Меню"><svg class="ic"><use href="#i-menu"/></svg></button>
+      <div class="search-box">
+        <svg class="ic search-ic"><use href="#i-search"/></svg>
+        <input id="chat-search" type="text" placeholder="Поиск" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="icon-btn" id="new-chat" title="Новый чат" aria-label="Новый чат"><svg class="ic"><use href="#i-plus"/></svg></button>
+    </div>
+    <div class="list-scroll">
+      <div id="chat-list" class="chat-list"></div>
+      <div id="search-results" class="search-results hidden"></div>
+    </div>
+    <div class="sidebar-foot"><span id="net-status" class="net-status">подключение…</span></div>
+  </aside>
+
+  <main class="chat-window" id="chat-window">
+    <header class="chat-head">
+      <button class="icon-btn back-btn" id="mobile-back" title="Назад" aria-label="Назад"><svg class="ic"><use href="#i-back"/></svg></button>
+      <button class="chat-peer hidden" id="chat-peer" type="button">
+        <span class="peer-avatar"><img id="chat-avatar" class="avatar avatar-md" alt=""></span>
+        <span class="chat-peer-text">
+          <span id="chat-title">Kitogram</span>
+          <span id="chat-sub">выберите чат</span>
+        </span>
+      </button>
+      <div class="chat-placeholder" id="chat-placeholder">
+        <span class="chat-placeholder-logo"><img src="icons/icon-192.png" alt=""></span>
+        <span>Kitogram</span>
+      </div>
+      <button class="icon-btn hidden" id="chat-menu" title="Информация" aria-label="Информация"><svg class="ic"><use href="#i-dots"/></svg></button>
+    </header>
+
+    <div id="typing-bar" class="typing-bar" aria-live="polite"></div>
+    <div id="messages" class="messages"></div>
+
+    <div id="chat-empty" class="chat-empty">
+      <div class="chat-empty-inner">
+        <img src="icons/icon-192.png" alt="" class="chat-empty-logo">
+        <h2>Добро пожаловать в Kitogram</h2>
+        <p>Выберите чат слева или нажмите «+», чтобы найти собеседника.</p>
+      </div>
+    </div>
+
+    <div id="composer-area" class="composer-area hidden">
+      <div id="preview-bar" class="preview-bar hidden"></div>
+      <form id="composer" class="composer" autocomplete="off">
+        <button type="button" class="icon-btn" id="attach-btn" title="Вложение" aria-label="Вложение"><svg class="ic"><use href="#i-clip"/></svg></button>
+        <textarea id="message-input" rows="1" placeholder="Сообщение" autocomplete="off"></textarea>
+        <button type="submit" class="send-btn" id="send-btn" title="Отправить" aria-label="Отправить"><svg class="ic"><use href="#i-send"/></svg></button>
+      </form>
+      <div id="record-bar" class="record-bar hidden">
+        <button type="button" class="icon-btn danger" id="record-cancel" title="Отменить"><svg class="ic"><use href="#i-trash"/></svg></button>
+        <span class="rec-dot"></span>
+        <span id="record-time">00:00</span>
+        <span class="record-hint" id="record-hint">Идёт запись…</span>
+        <button type="button" class="send-btn" id="record-stop" title="Отправить"><svg class="ic"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+
+    <video id="cam-preview" class="cam-preview hidden" autoplay muted playsinline></video>
+  </main>
+</div>
+
+<!-- ================= Меню ================= -->
+<div id="drawer" class="drawer hidden">
+  <div class="drawer-backdrop" data-close></div>
+  <aside class="drawer-panel">
+    <button class="drawer-profile" id="drawer-profile-btn" type="button">
+      <span class="drawer-avatar" id="my-avatar-wrap"><img id="my-avatar" class="avatar avatar-lg" alt=""></span>
+      <span class="drawer-profile-text">
+        <span id="my-name" class="drawer-name">…</span>
+        <span id="my-username" class="drawer-user">@…</span>
+        <span id="my-badge" class="drawer-badge"></span>
+      </span>
+      <svg class="ic"><use href="#i-chevron"/></svg>
+    </button>
+    <button class="drawer-item" id="menu-profile"><svg class="ic"><use href="#i-edit"/></svg>Оформить профиль</button>
+    <button class="drawer-item" id="menu-settings"><svg class="ic"><use href="#i-palette"/></svg>Оформление и настройки</button>
+    <button class="drawer-item" id="menu-new-chat"><svg class="ic"><use href="#i-plus"/></svg>Новый чат</button>
+    <button class="drawer-item" id="menu-new-group"><svg class="ic"><use href="#i-users"/></svg>Создать группу</button>
+    <button class="drawer-item" id="menu-global"><svg class="ic"><use href="#i-info"/></svg>Общий чат</button>
+    <div class="drawer-spacer"></div>
+    <div class="drawer-version">Kitogram <span id="app-version">4.0</span></div>
+    <button class="drawer-item danger" id="menu-logout"><svg class="ic"><use href="#i-logout"/></svg>Выйти из аккаунта</button>
+  </aside>
+</div>
+
+<!-- ================= Редактор профиля ================= -->
+<div class="modal hidden" id="profile-modal">
+  <div class="modal-card modal-wide">
+    <div class="modal-head">
+      <div class="modal-title">Оформление профиля</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="cover-editor" id="pe-cover">
+        <div class="cover-media" id="pe-cover-media"></div>
+        <div class="cover-tint" id="pe-tint"></div>
+        <div class="cover-tools">
+          <button type="button" class="chip" id="pe-cover-btn"><svg class="ic"><use href="#i-cover"/></svg>Фон</button>
+          <label class="chip switch"><input type="checkbox" id="pe-cover-blur"><span>Блюр</span></label>
+          <label class="chip range">Затемнение <input type="range" id="pe-cover-dim" min="0" max="80" value="20"></label>
+          <button type="button" class="chip" id="pe-cover-clear">Убрать</button>
         </div>
-        <input type="file" id="avatar-file" accept="image/*" style="display:none;">
-        <input type="text" id="username-input" placeholder="Введите ваш логин (на латинице)">
-        <input type="password" id="password-input" placeholder="Введите пароль">
-        
-        <label class="remember-row">
-            <input type="checkbox" id="remember-me" checked>
-            <span>Запомнить меня на этом устройстве</span>
+        <div class="cover-presets" id="pe-cover-presets"></div>
+        <div class="pe-avatar-wrap">
+          <span class="frame frame-none" id="pe-frame">
+            <button type="button" class="pe-avatar-btn" id="pe-avatar-btn" title="Сменить аватар">
+              <img id="pe-avatar" class="avatar" alt="">
+            </button>
+          </span>
+          <span class="pe-avatar-hint">фото / GIF</span>
+        </div>
+        <input type="file" id="pe-cover-file" accept="image/*,video/*" hidden>
+        <input type="file" id="pe-avatar-file" accept="image/*" hidden>
+      </div>
+
+      <div class="pe-grid">
+        <label class="field"><span>Имя</span><input id="pe-name" type="text" maxlength="32" placeholder="Ваше имя"></label>
+        <label class="field"><span>Статус</span><input id="pe-status" type="text" maxlength="48" placeholder="например, на связи 24/7"></label>
+      </div>
+      <label class="field"><span>О себе</span><textarea id="pe-bio" rows="2" maxlength="160" placeholder="Пара слов о себе"></textarea></label>
+
+      <div class="pe-grid">
+        <label class="field"><span>Рамка аватарки</span>
+          <select id="pe-frame-select">
+            <option value="none">Без рамки</option>
+            <option value="ring">Неон</option>
+            <option value="aurora">Аврора</option>
+            <option value="pulse">Пульс</option>
+            <option value="orbit">Орбита</option>
+            <option value="spark">Искры</option>
+          </select>
         </label>
-        
-        <button id="login-btn">Продолжить</button>
+        <label class="field"><span>Бейдж</span>
+          <select id="pe-badge">
+            <option value="">Нет</option>
+            <option>🔥</option><option>💎</option><option>👑</option><option>🎧</option>
+            <option>🚀</option><option>🌙</option><option>⚡</option><option>🖤</option>
+            <option>🦊</option><option>🍀</option><option>🎮</option><option>✨</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="pe-grid">
+        <label class="field-row"><span>Градиент имени</span><input type="checkbox" id="pe-grad-on"></label>
+        <label class="field-row"><span>Цвет имени</span><input type="color" id="pe-color" value="#2f9ede"></label>
+      </div>
+      <div class="pe-grid" id="pe-grad-row">
+        <label class="field-row"><span>Градиент от</span><input type="color" id="pe-grad-a" value="#2f9ede"></label>
+        <label class="field-row"><span>до</span><input type="color" id="pe-grad-b" value="#a855f7"></label>
+      </div>
+
+      <div class="pe-secret">
+        <div class="field-title">Код восстановления</div>
+        <div class="pe-code-row">
+          <code id="pe-recovery">••••</code>
+          <button type="button" class="mini-btn" id="pe-recovery-show">Показать</button>
+        </div>
+        <p class="pe-hint">С ним можно сменить пароль, если забудете. Никому не показывайте.</p>
+      </div>
     </div>
-
-    <div id="app-container" class="hidden">
-        
-        <div id="sidebar">
-            <div class="sidebar-header">
-                <button id="burger-menu-btn"><i class="fa-solid fa-bars"></i></button>
-                <div class="search-container">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="search-input" placeholder="Поиск чатов или сообщений...">
-                </div>
-            </div>
-            <div id="chats-list"></div>
-        </div>
-
-        <div id="chat-window">
-            <div class="chat-header">
-                <button id="back-to-sidebar"><i class="fa-solid fa-arrow-left"></i></button>
-                <img id="active-chat-avatar" src="" style="display:none;">
-                <div class="header-text">
-                    <div id="active-chat-title">Выберите чат из списка</div>
-                    <div id="active-chat-status" class="status-offline">слева</div>
-                </div>
-                <button id="chat-actions-btn" style="display:none;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-            </div>
-
-            <div id="preview-overlay" class="hidden"></div>
-            <div id="typing-indicator"></div>
-            
-            <div id="messages">
-                <div class="welcome-notif">Выберите, кому вы хотите написать, или создайте новую группу через меню.</div>
-            </div>
-
-            <video id="camera-preview" style="display:none; width:120px; height:120px; border-radius:50%; object-fit:cover; position:absolute; bottom:65px; right:20px; border:2px solid var(--tg-blue); z-index:10; transform: scaleX(-1);" autoplay muted playsinline></video>
-
-            <form id="message-form" style="display:none;" onsubmit="return false;">
-                <button type="button" id="attach-btn"><i class="fa-solid fa-paperclip"></i></button>
-                <input type="file" id="file-input" accept="image/*" style="display:none;">
-                
-                <input type="text" id="message-input" placeholder="Напишите сообщение..." autocomplete="off">
-                
-                <div id="recording-overlay" class="hidden">
-                    <span id="record-timer">00:00</span>
-                    <span class="swipe-hint">▲ Смахните вверх для фиксации</span>
-                </div>
-
-                <button type="button" id="action-btn"><i class="fa-solid fa-microphone"></i></button>
-            </form>
-        </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close type="button">Отмена</button>
+      <button class="btn btn-primary" id="profile-save" type="button">Сохранить</button>
     </div>
+  </div>
+</div>
 
-    <div id="context-menu" style="position: absolute; z-index: 1000;">
-        <div class="context-item" id="ctx-reply"><i class="fa-solid fa-reply"></i> Ответить</div>
-        <div class="context-item" id="ctx-forward"><i class="fa-solid fa-share"></i> Переслать</div>
-        <div class="context-item" id="ctx-like"><i class="fa-solid fa-heart"></i> Оценить ❤️</div>
-        <div class="context-item" id="ctx-delete-me"><i class="fa-solid fa-eye-slash"></i> Скрыть у себя</div>
-        <div class="context-item danger" id="ctx-delete-all"><i class="fa-solid fa-trash"></i> Удалить у всех</div>
+<!-- ================= Профиль пользователя ================= -->
+<div class="modal hidden" id="card-modal">
+  <div class="modal-card profile-card">
+    <div class="pc-cover" id="card-cover"></div>
+    <button class="icon-btn pc-close" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    <div class="pc-body">
+      <div class="pc-avatar-wrap" id="card-avatar-wrap"><img class="avatar" id="card-avatar" alt=""></div>
+      <div class="pc-name" id="card-name"></div>
+      <div class="pc-login" id="card-login"></div>
+      <div class="pc-status" id="card-status"></div>
+      <div class="pc-bio" id="card-bio"></div>
+      <div class="pc-badges" id="card-badges"></div>
+      <div class="info-block" id="card-lines"></div>
+      <div class="pc-actions" id="card-actions"></div>
     </div>
+  </div>
+</div>
 
-    <div id="burger-menu">
-        <div class="burger-content">
-            <div class="burger-profile">
-                <img id="burger-my-avatar" src="">
-                <div id="burger-my-name">Загрузка...</div>
-                <div id="burger-my-username">@username</div>
-            </div>
-            <div class="burger-item" id="menu-profile"><i class="fa-solid fa-gear"></i> Настройки профиля</div>
-            <div class="burger-item" id="menu-create-group"><i class="fa-solid fa-users"></i> Создать группу</div>
-            <div class="burger-item danger" id="menu-logout" style="margin-top:auto; color:#ef5350;"><i class="fa-solid fa-right-from-bracket"></i> Выйти из аккаунта</div>
-        </div>
+<!-- ================= Оформление и настройки ================= -->
+<div class="modal hidden" id="settings-modal">
+  <div class="modal-card modal-wide">
+    <div class="modal-head">
+      <div class="modal-title">Оформление</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
     </div>
+    <div class="modal-body">
+      <div class="field-title">Акцент интерфейса</div>
+      <div class="swatches" id="set-accent"></div>
 
-    <main-modal id="profile-modal" style="display:none;">
-        <div class="modal-box">
-            <h3>Редактировать профиль</h3>
-            <div style="text-align:center; margin-bottom:15px;">
-                <img id="modal-avatar-preview" src="" style="width:75px; height:75px; border-radius:50%; cursor:pointer; border:2px dashed var(--tg-blue); object-fit:cover;">
-                <input type="file" id="modal-avatar-file" accept="image/*" style="display:none;">
-            </div>
-            <input type="text" id="modal-display-name-input" placeholder="Ваше имя">
-            <div class="modal-row">
-                <span>Цвет имени в группах:</span>
-                <input type="color" id="modal-color-input" value="#5288c1">
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-secondary" id="profile-cancel-btn">Отмена</button>
-                <button class="btn-primary" id="profile-save-btn">Сохранить</button>
-            </div>
-        </div>
-    </main-modal>
+      <div class="pe-grid">
+        <label class="field"><span>Тема</span>
+          <select id="set-theme">
+            <option value="dark">Тёмная</option>
+            <option value="light">Светлая</option>
+          </select>
+        </label>
+        <label class="field"><span>Форма пузырей</span>
+          <select id="set-bubble">
+            <option value="rounded">Скруглённые</option>
+            <option value="soft">Мягкие</option>
+            <option value="sharp">Острые</option>
+          </select>
+        </label>
+      </div>
 
-    <main-modal id="group-modal" style="display:none;">
-        <div class="modal-box">
-            <h3>Создание группы</h3>
-            <div style="display:flex; gap:12px; align-items:center; margin-bottom:14px;">
-                <img id="group-preview" src="https://ui-avatars.com/api/?name=G&background=248bcf" style="width:50px; height:50px; border-radius:50%; cursor:pointer; object-fit:cover;" onclick="document.getElementById('group-avatar-file').click()">
-                <input type="file" id="group-avatar-file" accept="image/*" style="display:none;">
-                <input type="text" id="group-name-input" placeholder="Название группы" style="margin-bottom:0; flex:1;">
-            </div>
-            <div style="color:var(--text-muted); font-size:13px; margin-bottom:6px;">Выберите участников:</div>
-            <div id="group-members-list" style="max-height:160px; overflow-y:auto; background:var(--bg-main); padding:8px; border-radius:6px; border:1px solid var(--border-col);"></div>
-            <div class="modal-buttons">
-                <button class="btn-secondary" id="group-cancel-btn">Отмена</button>
-                <button class="btn-primary" id="group-create-submit-btn">Создать</button>
-            </div>
-        </div>
-    </main-modal>
+      <label class="field-row range-row"><span>Размер шрифта</span><input type="range" id="set-font" min="13" max="19" step="1" value="15"></label>
 
-    <main-modal id="members-modal" style="display:none;">
-        <div class="modal-box">
-            <h3 id="members-modal-title">Участники группы</h3>
-            <div id="current-members-list" style="max-height:140px; overflow-y:auto; margin-bottom:12px;"></div>
-            
-            <div id="add-member-zone" style="display:none; border-top:1px solid var(--border-col); padding-top:12px;">
-                <div style="color:var(--text-muted); font-size:13px; margin-bottom:6px;">Пригласить в группу:</div>
-                <div id="add-members-available" style="max-height:100px; overflow-y:auto; background:var(--bg-main); padding:6px; border-radius:6px; margin-bottom:10px;"></div>
-                <button class="btn-primary" id="add-member-submit-btn" style="width:100%; padding:6px; font-size:13px;">Добавить выбранных</button>
-            </div>
+      <div class="field-title">Обои чата</div>
+      <div class="wall-row">
+        <button type="button" class="chip" id="set-wall-file"><svg class="ic"><use href="#i-wall"/></svg>Своя картинка / GIF</button>
+        <button type="button" class="chip" id="set-wall-clear">Без обоев</button>
+        <label class="chip range">Затемнение <input type="range" id="set-wall-dim" min="0" max="80" value="35"></label>
+      </div>
+      <div class="wall-presets" id="set-wall-presets"></div>
+      <input type="file" id="set-wall-input" accept="image/*" hidden>
 
-            <div class="modal-buttons">
-                <button class="btn-secondary" id="members-close-btn" style="width:100%;">Закрыть</button>
-            </div>
-        </div>
-    </main-modal>
+      <div class="field-title">Поведение</div>
+      <label class="switch-row"><span>Звук новых сообщений</span><input type="checkbox" id="set-sound" checked></label>
+      <label class="switch-row"><span>Скрывать «печатает…» от других</span><input type="checkbox" id="set-typing-hidden"></label>
+      <label class="switch-row"><span>Анимации и эффекты</span><input type="checkbox" id="set-effects" checked></label>
 
-    <script type="module">
-        // Загружаем Firebase SDK версий v9/v10 как полноценные модули
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getDatabase, ref, push, onValue, set, update, get, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+      <div class="field-title">Данные</div>
+      <div class="wall-row">
+        <button type="button" class="chip" id="set-export"><svg class="ic"><use href="#i-download"/></svg>Скачать users.txt</button>
+        <button type="button" class="chip danger" id="set-reset"><svg class="ic"><use href="#i-trash"/></svg>Сбросить всю базу</button>
+      </div>
+      <p class="pe-hint">users.txt — текстовый список аккаунтов Kitogram (логины и пароли) для восстановления доступа. Тот же файл автоматически обновляется в GitHub-репозитории (нужен токен с правом contents:write — он хранится только в этом браузере).</p>
+      <label class="field"><span>GitHub-токен (для users.txt)</span><input id="set-gh-token" type="password" placeholder="ghp_… — необязательно" autocomplete="off" spellcheck="false"></label>
+      <div class="wall-row" style="margin-top:0">
+        <button type="button" class="chip" id="set-gh-save"><svg class="ic"><use href="#i-key"/></svg>Сохранить токен</button>
+        <button type="button" class="chip" id="set-gh-push"><svg class="ic"><use href="#i-sparkles"/></svg>Отправить users.txt в GitHub</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" data-close type="button">Готово</button>
+    </div>
+  </div>
+</div>
 
-        // Ваша исходная конфигурация БД
-        const firebaseConfig = {
-            apiKey: "AIzaSyCtdqpLLsbolvQlxGEqUzlrR5q57po",
-            authDomain: "messenger-2e22b.firebaseapp.com",
-            databaseURL: "https://messenger-2e22b-default-rtdb.firebaseio.com",
-            projectId: "messenger-2e22b",
-            storageBucket: "messenger-2e22b.appspot.com",
-            messagingSenderId: "5687677139"
-        };
+<!-- ================= Новый чат ================= -->
+<div class="modal hidden" id="newchat-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Новый чат</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="search-box modal-search">
+        <svg class="ic search-ic"><use href="#i-search"/></svg>
+        <input id="newchat-search" type="text" placeholder="Поиск по логину или имени" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="newchat-list" class="user-list"></div>
+      <button class="btn btn-secondary btn-block" id="newchat-create-group" type="button">
+        <svg class="ic"><use href="#i-users"/></svg>Создать группу
+      </button>
+    </div>
+  </div>
+</div>
 
-        // Инициализируем соединение
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+<!-- ================= Создание группы ================= -->
+<div class="modal hidden" id="group-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Создать группу</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="group-head">
+        <button type="button" class="group-avatar-btn" id="new-group-avatar-btn" title="Фото группы">
+          <img id="new-group-avatar" class="avatar avatar-lg" alt="">
+          <span class="profile-cam"><svg class="ic"><use href="#i-camera"/></svg></span>
+        </button>
+        <input type="file" id="new-group-avatar-file" accept="image/*" hidden>
+        <label class="field group-name-field"><span>Название</span><input id="new-group-name" type="text" maxlength="50" placeholder="Например, Друзья"></label>
+      </div>
+      <div class="field-title">Участники</div>
+      <div id="new-group-members" class="member-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close type="button">Отмена</button>
+      <button class="btn btn-primary" id="create-group-btn" type="button">Создать</button>
+    </div>
+  </div>
+</div>
 
-        // Привязываем методы Firebase к глобальному окну window,
-        // чтобы скрипт-обработчик имел к ним прямой и безопасный доступ.
-        window.db = db;
-        window.ref = ref;
-        window.push = push;
-        window.set = set;
-        window.update = update;
-        window.onValue = onValue;
-        window.get = get;
-        window.onDisconnect = onDisconnect;
+<!-- ================= Информация о группе ================= -->
+<div class="modal hidden" id="info-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="info-title">Информация</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="info-body"></div>
+  </div>
+</div>
+<input type="file" id="group-avatar-file" accept="image/*" hidden>
 
-        console.log("Firebase успешно запущен как модуль.");
-    </script>
+<!-- ================= Пересылка ================= -->
+<div class="modal hidden" id="forward-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Переслать в…</div>
+      <button class="icon-btn" data-close type="button" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="search-box modal-search">
+        <svg class="ic search-ic"><use href="#i-search"/></svg>
+        <input id="forward-search" type="text" placeholder="Куда переслать?" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="forward-list" class="chat-list"></div>
+    </div>
+  </div>
+</div>
 
-    <script src="app.js" type="module"></script>
+<!-- ================= Просмотр медиа ================= -->
+<div class="modal hidden" id="image-modal">
+  <div class="viewer">
+    <img id="image-view" alt="Изображение">
+    <div class="viewer-actions">
+      <a class="icon-btn" id="image-download" download="kitogram-image.jpg" title="Скачать"><svg class="ic"><use href="#i-download"/></svg></a>
+      <button class="icon-btn" data-close type="button" title="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+  </div>
+</div>
 
+<div class="modal hidden" id="video-modal">
+  <div class="viewer">
+    <video id="video-view" controls playsinline></video>
+    <div class="viewer-actions">
+      <button class="icon-btn" data-close type="button" title="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Поповеры ================= -->
+<div id="attach-menu" class="popover hidden">
+  <button class="popover-item" data-attach="photo" type="button"><svg class="ic"><use href="#i-photo"/></svg>Фото</button>
+  <button class="popover-item" data-attach="voice" type="button"><svg class="ic"><use href="#i-mic"/></svg>Голосовое</button>
+  <button class="popover-item" data-attach="circle" type="button"><svg class="ic"><use href="#i-video"/></svg>Кружок</button>
+</div>
+
+<div id="ctx-menu" class="popover hidden"></div>
+
+<input type="file" id="file-input" accept="image/*" hidden>
+<div id="toasts" class="toasts"></div>
+
+<script src="js/core.js" defer></script>
+<script src="js/viewer.js" defer></script>
+<script src="js/data.js" defer></script>
+<script src="js/auth.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/messages.js" defer></script>
+<script src="js/groups.js" defer></script>
+<script src="js/settings.js" defer></script>
+<script src="js/people.js" defer></script>
+<script src="js/newchat.js" defer></script>
+<script src="js/profile.js" defer></script>
+<script src="js/boot.js" defer></script>
 </body>
 </html>

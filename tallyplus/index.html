@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1a24">
+<meta name="robots" content="noindex,nofollow">
+<title>TallyPlus</title>
+<!--
+  TallyPlus — track scanned parcels: SKU + location + qty.
+  Single file, no libraries, ES5 only, built for a barcode-scanner PDA and
+  feature phones. Storage: Firebase RTDB REST (same project as Kitogram).
+-->
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:#0f1a24;color:#e8eef4;padding:12px 12px 90px;
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif
+  }
+  .hidden{display:none !important}
+  h1{font-size:19px;margin:0;font-weight:700}
+  h1 span{color:#38bdf8}
+  .card{background:#16212c;border:1px solid #24333f;border-radius:14px;padding:16px;max-width:520px;margin:0 auto}
+  label{display:block;font-size:13px;color:#8ba0b3;margin:14px 0 6px}
+  input[type=password],input[type=text]{
+    width:100%;padding:14px 12px;font-size:19px;border-radius:11px;
+    border:1px solid #2d3d4d;background:#0c141b;color:#e8eef4;outline:none
+  }
+  input:focus{border-color:#38bdf8}
+  input[readonly]{color:#93a6b8}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}
+  button{font:inherit;cursor:pointer;border-radius:11px;border:1px solid #2d3d4d;background:#22303c;color:#e8eef4}
+  .big{width:100%;padding:15px;font-size:17px;font-weight:600;background:#38bdf8;border-color:#38bdf8;color:#07202d;margin-top:16px}
+  .big:active{background:#25a7de}
+  .big[disabled]{opacity:.5}
+  .err{color:#ff8a80;font-size:14px;margin-top:10px;min-height:18px}
+  .ok{color:#6ee7a8}
+  /* ---------- app ---------- */
+  .wrap{max-width:640px;margin:0 auto}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .top .user{font-size:12px;color:#6b8296}
+  .searchbox{position:relative;margin:0 0 8px}
+  .searchbox input{padding-left:38px}
+  .searchbox .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#5f7488;font-size:16px}
+  .searchbox .clr{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    background:none;border:0;color:#7f93a6;font-size:20px;padding:6px 10px
+  }
+  .hintbar{font-size:12px;color:#7f93a6;margin:0 0 10px;display:flex;gap:12px;flex-wrap:wrap}
+  .hintbar b{color:#ffb74d}
+  .stats{font-size:12px;color:#6b8296;margin:0 0 10px}
+  /* ---------- rows ---------- */
+  .row{
+    background:#16212c;border:1px solid #24333f;border-left-width:5px;border-radius:12px;
+    padding:11px 12px;margin-bottom:9px
+  }
+  .row.fresh{border-left-color:#22c55e}
+  .row.old{border-left-color:#ef4444}
+  .row .l1{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .row .sku{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;font-weight:700;letter-spacing:.01em;word-break:break-all}
+  .row .warn{color:#ef4444;font-weight:700;font-size:16px;flex:none}
+  .row .l2{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}
+  .row .loc{font-size:14px;color:#9fb4c7;word-break:break-all}
+  .row .loc b{color:#dbe7f1;font-weight:600}
+  .row .qty{
+    flex:none;background:#0f1a24;border:1px solid #2d3d4d;border-radius:8px;
+    padding:3px 9px;font-size:14px;font-weight:700;color:#38bdf8
+  }
+  .row .l3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12px;color:#6b8296}
+  .row .acts{display:flex;gap:6px;flex:none}
+  .row .acts button{padding:5px 9px;font-size:12px}
+  .row .acts .check{color:#6ee7a8;border-color:#254b39;background:#13251d}
+  .row .acts .del{color:#ff9d95;border-color:#4a2b2b;background:#241a1a}
+  .row.flash{animation:flash .9s ease-out 2}
+  @keyframes flash{0%{background:#1d3a2b}100%{background:#16212c}}
+  .empty{text-align:center;color:#7f93a6;padding:34px 14px;font-size:15px;line-height:1.6}
+  .empty b{color:#9fb4c7}
+  /* ---------- bottom bar ---------- */
+  .bottom{
+    position:fixed;left:0;right:0;bottom:0;padding:10px 12px;
+    background:linear-gradient(to top,#0f1a24 70%,rgba(15,26,36,0));z-index:20
+  }
+  .bottom .inner{max-width:640px;margin:0 auto;display:flex;gap:8px}
+  .bottom button{flex:1;padding:15px;font-size:17px;font-weight:700}
+  .bottom .create{background:#22c55e;border-color:#22c55e;color:#04150b}
+  .bottom .create:active{background:#1aa84e}
+  .bottom .scan{background:#38bdf8;border-color:#38bdf8;color:#07202d;flex:0 0 auto;padding:15px 18px;font-size:19px}
+  /* ---------- modal ---------- */
+  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(4,10,16,.86);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
+  .sheet{background:#16212c;border:1px solid #2b3d4b;border-radius:16px;padding:16px;width:100%;max-width:460px}
+  .sheet h2{font-size:17px;margin:0 0 4px}
+  .sheet .sub{font-size:13px;color:#8ba0b3;margin:0 0 4px}
+  .sheet .row2{display:flex;gap:8px;margin-top:16px}
+  .sheet .row2 button{flex:1;padding:13px;font-size:15px}
+  .sheet .row2 .ghost{background:none;color:#9fb4c7}
+  .sheet .row2 .go{background:#38bdf8;border-color:#38bdf8;color:#07202d;font-weight:700}
+  .sheet .row2 .go[disabled]{opacity:.5}
+  .sheet .del{background:#241a1a;border-color:#4a2b2b;color:#ff9d95}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px solid #22303c}
+  .kv:last-child{border-bottom:0}
+  .kv span:first-child{color:#8ba0b3}
+  .kv span:last-child{font-weight:600;word-break:break-all;text-align:right}
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:86px;transform:translateX(-50%);max-width:calc(100% - 24px);
+    background:#22303c;border:1px solid #33475b;color:#e8eef4;padding:11px 15px;border-radius:11px;
+    font-size:14px;z-index:90;box-shadow:0 6px 22px rgba(0,0,0,.45)
+  }
+  .toast.bad{background:#2a1c1c;border-color:#5a3333;color:#ffc9c4}
+</style>
+</head>
+<body>
+
+<!-- ---------- boot ---------- -->
+<div id="boot" class="card">Connecting…</div>
+
+<!-- ---------- login ---------- -->
+<div id="login" class="card hidden">
+  <h1>Tally<span>Plus</span></h1>
+  <p class="sub" style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Parcel tracking — scan &amp; find</p>
+
+  <label>Account</label>
+  <input id="lg-user" type="text" value="Kito" readonly>
+
+  <label>Password</label>
+  <input id="lg-pass" type="password" placeholder="Password" autocomplete="current-password">
+
+  <button id="lg-go" class="big">Sign in</button>
+  <div id="lg-err" class="err"></div>
+</div>
+
+<!-- ---------- app ---------- -->
+<div id="app" class="hidden">
+  <div class="wrap">
+    <div class="top">
+      <h1>Tally<span>Plus</span></h1>
+      <div style="text-align:right">
+        <div class="user" id="who">@Kito</div>
+        <button class="link" id="logout" style="background:none;border:0;color:#7f93a6;font-size:12px;text-decoration:underline;padding:2px 0">Sign out</button>
+      </div>
+    </div>
+
+    <div class="searchbox">
+      <span class="ic">🔍</span>
+      <input id="q" type="text" class="mono" placeholder="Search by SKU or last digits" autocomplete="off">
+      <button class="clr hidden" id="q-clr" type="button">✕</button>
+    </div>
+
+    <div class="hintbar">
+      <span><b>!</b> — please re-check, older than 5 days</span>
+      <span style="color:#22c55e">green — recently added</span>
+    </div>
+    <div class="stats" id="stats"></div>
+
+    <div id="list"></div>
+    <div id="empty" class="empty hidden">
+      <b>No parcels yet</b><br>
+      Scan one with the PDA or press <b>Create</b> below.
+    </div>
+    <div id="noresult" class="empty hidden">
+      <b>Nothing found</b><br>
+      Try the beginning, the end, or a few digits in the middle.
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="inner">
+      <button class="scan" id="btn-scan" type="button" title="Scan a parcel">⛶</button>
+      <button class="create" id="btn-create" type="button">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==================== config ==================== */
+  var DB = 'https://messenger-2e22b-default-rtdb.firebaseio.com';
+  var ROOT = 'tallyplus';
+  var SESS = 'tp_sess';
+
+  /* Пароль не хранится в коде открытым текстом — только sha256 от соли и логина.
+     Хеш соответствует паролю Kito / 0506 (длиннее — тоже можно, поле не ограничено). */
+  var ACC = {
+    login: 'Kito',
+    salt: 'tp7f3a91',
+    hash: '431452be51ff412a349a30576173cc936cb402f125f86ee13dcd67afa20bcb77'
+  };
+
+  var OLD_DAYS = 5;                  // старше 5 дней — красный и «!»
+  var DAY = 24 * 60 * 60 * 1000;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ==================== sha-256 (ES5, без библиотек) ==================== */
+  function sha256(ascii) {
+    function rr(v, a) { return (v >>> a) | (v << (32 - a)); }
+    var i, j, pw = Math.pow, maxWord = pw(2, 32), result = '', words = [];
+    var bitLen = ascii.length * 8;
+    var hash = sha256.h = sha256.h || [];
+    var k = sha256.k = sha256.k || [];
+    var pc = k.length, isComp = {};
+    if (!pc) {
+      for (var c = 2; pc < 64; c++) {
+        if (!isComp[c]) {
+          for (i = 0; i < 313; i += c) isComp[i] = c;
+          hash[pc] = (pw(c, 0.5) * maxWord) | 0;
+          k[pc++] = (pw(c, 1 / 3) * maxWord) | 0;
+        }
+      }
+    }
+    ascii += '\x80';
+    while (ascii.length % 64 - 56) ascii += '\x00';
+    for (i = 0; i < ascii.length; i++) {
+      j = ascii.charCodeAt(i);
+      words[i >> 2] |= (j & 255) << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = (bitLen / maxWord) | 0;
+    words[words.length] = bitLen;
+    for (j = 0; j < words.length;) {
+      var w = words.slice(j, j += 16);
+      var old = hash;
+      hash = hash.slice(0, 8);
+      for (i = 0; i < 64; i++) {
+        var w15 = w[i - 15], w2 = w[i - 2];
+        var a = hash[0], e = hash[4];
+        var t1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) +
+                 ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] +
+                 (w[i] = (i < 16) ? w[i] : (
+                   w[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + w[i - 7] +
+                   (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))
+                 ) | 0);
+        var t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+        hash = [(t1 + t2) | 0].concat(hash);
+        hash[4] = (hash[4] + t1) | 0;
+      }
+      for (i = 0; i < 8; i++) hash[i] = (hash[i] + old[i]) | 0;
+    }
+    for (i = 0; i < 8; i++) {
+      for (j = 3; j + 1; j--) {
+        var b = (hash[i] >> (j * 8)) & 255;
+        result += (b < 16 ? '0' : '') + b.toString(16);
+      }
+    }
+    return result;
+  }
+  function sha(str) {
+    try { return sha256(unescape(encodeURIComponent(String(str)))); }
+    catch (e) { return sha256(String(str)); }
+  }
+
+  /* ==================== network ==================== */
+  function xhr(method, path, body, cb) {
+    var x = new XMLHttpRequest();
+    try { x.open(method, DB + '/' + path + '.json', true); } catch (e) { return cb(e); }
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status >= 200 && x.status < 300) {
+        var d = null;
+        try { d = x.responseText ? JSON.parse(x.responseText) : null; } catch (e) {}
+        cb(null, d);
+      } else if (x.status === 0) {
+        cb(new Error('no connection'));
+      } else {
+        cb(new Error('server ' + x.status));
+      }
+    };
+    x.onerror = function () { cb(new Error('no connection')); };
+    try { x.send(body === undefined ? null : JSON.stringify(body)); } catch (e) { cb(e); }
+  }
+
+  /* ==================== storage ==================== */
+  var state = { items: {}, q: '', busy: false, key: '' };
+
+  function listPath() { return ROOT + '/items'; }
+  function itemPath(id) { return ROOT + '/items/' + id; }
+
+  function loadItems(cb) {
+    xhr('GET', listPath(), undefined, function (err, data) {
+      if (err) { if (cb) cb(err); return; }
+      state.items = (data && typeof data === 'object') ? data : {};
+      render();
+      if (cb) cb(null, state.items);
+    });
+  }
+
+  function saveItem(rec, cb) {
+    var id = rec.id || ('p' + (new Date().getTime()).toString(36) + Math.random().toString(36).slice(2, 6));
+    var out = {
+      id: id, sku: rec.sku, loc: rec.loc, qty: rec.qty,
+      added: rec.added || new Date().getTime(),
+      checked: rec.checked || 0
+    };
+    xhr('PUT', itemPath(id), out, function (err) {
+      if (err) return cb(err);
+      state.items[id] = out;
+      cb(null, out);
+    });
+  }
+
+  function removeItem(id, cb) {
+    xhr('DELETE', itemPath(id), undefined, function (err) {
+      if (!err) delete state.items[id];
+      cb(err);
+    });
+  }
+
+  /* ==================== helpers ==================== */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function toast(msg, bad) {
+    var el = document.createElement('div');
+    el.className = 'toast' + (bad ? ' bad' : '');
+    el.innerHTML = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, bad ? 3400 : 2300);
+  }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function dayStr(ts) {
+    var d = new Date(ts || 0);
+    return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+  }
+  function dateStr(ts) {
+    var d = new Date(ts || 0);
+    return dayStr(ts) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function daysAgo(ts) {
+    return Math.floor((new Date().getTime() - (ts || 0)) / DAY);
+  }
+  /* возраст записи считаем от последней отметки (галочка) или добавления */
+  function ageTs(it) { return Math.max(Number(it.checked) || 0, Number(it.added) || 0); }
+  function isOld(it) { return daysAgo(ageTs(it)) >= OLD_DAYS; }
+
+  /* нормализация для поиска: только буквы/цифры, верхний регистр */
+  function norm(s) {
+    var v = String(s == null ? '' : s).toUpperCase();
+    try { v = v.replace(/[^A-Z0-9А-ЯЁ]/g, ''); }
+    catch (e) { v = v.replace(/[^A-Z0-9]/g, ''); }
+    return v;
+  }
+
+  /* «умный» поиск: начало, конец, любой фрагмент; несколько слов — все должны найтись */
+  function matchItem(it, query) {
+    var q = norm(query);
+    if (!q) return true;
+    var sku = norm(it.sku);
+    var loc = norm(it.loc);
+    /* если запрос целиком — ищем подстроку в SKU или локации */
+    if (sku.indexOf(q) >= 0 || loc.indexOf(q) >= 0) return true;
+    /* несколько слов: каждое должно найтись в SKU+локации */
+    var parts = String(query).toUpperCase().split(/[\s,;]+/);
+    var ok = true, any = false;
+    for (var i = 0; i < parts.length; i++) {
+      var p = norm(parts[i]);
+      if (!p) continue;
+      any = true;
+      if (sku.indexOf(p) < 0 && loc.indexOf(p) < 0) { ok = false; break; }
+    }
+    return any && ok;
+  }
+
+  /* ==================== render ==================== */
+  function visibleItems() {
+    var out = [];
+    Object.keys(state.items).forEach(function (id) {
+      var it = state.items[id];
+      if (!it || typeof it !== 'object' || !it.sku) return;
+      if (!matchItem(it, state.q)) return;
+      out.push(it);
+    });
+    /* старые — наверх, чтобы сразу бросались в глаза, дальше по времени добавления */
+    out.sort(function (a, b) {
+      var ao = isOld(a) ? 0 : 1, bo = isOld(b) ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return (ageTs(b) || 0) - (ageTs(a) || 0);
+    });
+    return out;
+  }
+
+  function render() {
+    var list = $('list');
+    var items = visibleItems();
+    var all = Object.keys(state.items).length;
+    var oldCount = 0, totalQty = 0;
+    Object.keys(state.items).forEach(function (id) {
+      var it = state.items[id];
+      if (!it || !it.sku) return;
+      if (isOld(it)) oldCount++;
+      totalQty += Number(it.qty) || 0;
+    });
+
+    $('empty').className = all ? 'empty hidden' : 'empty';
+    $('noresult').className = (all && !items.length) ? 'empty' : 'empty hidden';
+
+    $('stats').textContent = all
+      ? (items.length === all
+          ? all + ' parcels · ' + totalQty + ' items' + (oldCount ? ' · ' + oldCount + ' to re-check' : '')
+          : items.length + ' of ' + all + ' shown')
+      : '';
+
+    list.innerHTML = '';
+    items.forEach(function (it) {
+      var old = isOld(it);
+      var row = document.createElement('div');
+      row.className = 'row ' + (old ? 'old' : 'fresh');
+      row.setAttribute('data-id', it.id);
+
+      var l1 = document.createElement('div');
+      l1.className = 'l1';
+      var sku = document.createElement('span');
+      sku.className = 'sku';
+      sku.textContent = it.sku;
+      l1.appendChild(sku);
+      if (old) {
+        var w = document.createElement('span');
+        w.className = 'warn';
+        w.textContent = '!';
+        w.title = 'Possibly outdated — please re-check';
+        l1.appendChild(w);
+      }
+
+      var l2 = document.createElement('div');
+      l2.className = 'l2';
+      var loc = document.createElement('span');
+      loc.className = 'loc';
+      loc.innerHTML = '<b>' + esc(it.loc || '—') + '</b>';
+      var qty = document.createElement('span');
+      qty.className = 'qty';
+      qty.textContent = '× ' + (Number(it.qty) || 0);
+      l2.appendChild(loc);
+      l2.appendChild(qty);
+
+      var l3 = document.createElement('div');
+      l3.className = 'l3';
+      var when = document.createElement('span');
+      when.textContent = it.checked
+        ? 'Updated ' + dayStr(it.checked)
+        : 'Added ' + dateStr(it.added);
+      var acts = document.createElement('div');
+      acts.className = 'acts';
+      var chk = document.createElement('button');
+      chk.type = 'button';
+      chk.className = 'check';
+      chk.textContent = '✔';
+      chk.title = 'Still there — mark as checked today';
+      chk.addEventListener('click', function (e) {
+        e.stopPropagation();
+        checkItem(it);
+      });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del';
+      del.textContent = '✕';
+      del.title = 'Remove';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        askDelete(it);
+      });
+      acts.appendChild(chk);
+      acts.appendChild(del);
+      l3.appendChild(when);
+      l3.appendChild(acts);
+
+      row.appendChild(l1);
+      row.appendChild(l2);
+      row.appendChild(l3);
+      row.addEventListener('click', function () { openDetails(it); });
+      list.appendChild(row);
+    });
+  }
+
+  /* ==================== actions ==================== */
+  function checkItem(it) {
+    var now = new Date().getTime();
+    saveItem({ id: it.id, sku: it.sku, loc: it.loc, qty: it.qty, added: it.added, checked: now }, function (err) {
+      if (err) return toast('Could not save — check connection', true);
+      render();
+      var row = document.querySelector('.row[data-id="' + it.id + '"]');
+      if (row) { row.className = 'row fresh flash'; }
+      toast('Checked today — timer reset');
+    });
+  }
+
+  function askDelete(it) {
+    modal({
+      title: 'Remove parcel?',
+      sub: 'This only deletes it from TallyPlus.',
+      lines: [['SKU', it.sku], ['Location', it.loc], ['Quantity', it.qty]],
+      okText: 'Remove',
+      okClass: 'del',
+      onOk: function (close) {
+        removeItem(it.id, function (err) {
+          close();
+          if (err) return toast('Could not remove', true);
+          render();
+          toast('Removed');
+        });
+      }
+    });
+  }
+
+  function openDetails(it) {
+    var lines = [
+      ['SKU', it.sku],
+      ['Location', it.loc || '—'],
+      ['Quantity', it.qty],
+      ['Added', dateStr(it.added)]
+    ];
+    if (it.checked) lines.push(['Last checked', dateStr(it.checked)]);
+    lines.push(['Age', daysAgo(ageTs(it)) + ' days']);
+    modal({
+      title: 'Parcel',
+      lines: lines,
+      okText: 'Mark checked',
+      okClass: 'go',
+      cancelText: 'Close',
+      onOk: function (close) { close(); checkItem(it); }
+    });
+  }
+
+  /* ==================== modal ==================== */
+  var modalEl = null;
+  function closeModal() {
+    if (modalEl && modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
+    modalEl = null;
+  }
+
+  function modal(opt) {
+    closeModal();
+    var box = document.createElement('div');
+    box.className = 'modal';
+    var sheet = document.createElement('div');
+    sheet.className = 'sheet';
+
+    var h = document.createElement('h2');
+    h.textContent = opt.title || '';
+    sheet.appendChild(h);
+    if (opt.sub) {
+      var s = document.createElement('p');
+      s.className = 'sub';
+      s.textContent = opt.sub;
+      sheet.appendChild(s);
+    }
+    if (opt.body) sheet.appendChild(opt.body);
+    (opt.lines || []).forEach(function (kv) {
+      var d = document.createElement('div');
+      d.className = 'kv';
+      var a = document.createElement('span');
+      a.textContent = kv[0];
+      var b = document.createElement('span');
+      b.textContent = kv[1];
+      d.appendChild(a);
+      d.appendChild(b);
+      sheet.appendChild(d);
+    });
+
+    var r2 = document.createElement('div');
+    r2.className = 'row2';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'ghost';
+    cancel.textContent = opt.cancelText || 'Cancel';
+    cancel.addEventListener('click', function () {
+      closeModal();
+      if (opt.onCancel) opt.onCancel();
+    });
+    r2.appendChild(cancel);
+
+    if (opt.okText) {
+      var ok = document.createElement('button');
+      ok.type = 'button';
+      ok.className = opt.okClass || 'go';
+      ok.textContent = opt.okText;
+      ok.addEventListener('click', function () {
+        if (opt.onOk) opt.onOk(closeModal);
+        else closeModal();
+      });
+      r2.appendChild(ok);
+    }
+    sheet.appendChild(r2);
+    box.appendChild(sheet);
+    document.body.appendChild(box);
+    modalEl = box;
+    return { close: closeModal };
+  }
+
+  /* ==================== flow: SKU -> location -> qty ==================== */
+  var flow = { sku: '', loc: '', qty: 1 };
+
+  function normSku(v) {
+    return String(v || '').replace(/\s+/g, '').toUpperCase();
+  }
+
+  function startScan(sku) {
+    flow = { sku: normSku(sku), loc: '', qty: 1 };
+    if (!flow.sku) return;
+    if (flow.sku.length < 3) return toast('That does not look like a SKU', true);
+    stepLocation();
+  }
+
+  function stepLocation() {
+    modal({
+      title: 'Scan the location',
+      sub: 'Parcel ' + flow.sku,
+      lines: [['SKU', flow.sku]],
+      cancelText: 'Cancel',
+      okText: 'Next',
+      okClass: 'go',
+      body: bigInput('Scan or type the location', flow.loc, 'tp-loc', function (v) { flow.loc = v; }),
+      onOk: function (close) {
+        var v = normLoc($('tp-loc').value);
+        if (!v) { $('tp-loc').style.borderColor = '#ef4444'; $('tp-loc').focus(); return; }
+        flow.loc = v;
+        close();
+        stepQty();
+      }
+    });
+    setTimeout(function () { var el = $('tp-loc'); if (el) el.focus(); }, 80);
+  }
+
+  function stepQty() {
+    modal({
+      title: 'How many?',
+      sub: 'Quantity for ' + flow.sku,
+      cancelText: 'Cancel',
+      okText: 'Add to list',
+      okClass: 'go',
+      body: qtyBox(),
+      onOk: function (close) {
+        var n = Math.round(Number($('tp-qty-val').textContent) || 0);
+        if (n < 1) { toast('Quantity must be at least 1', true); return; }
+        flow.qty = n;
+        close();
+        addParcel();
+      }
+    });
+  }
+
+  function normLoc(v) {
+    return String(v || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function addParcel() {
+    saveItem({ sku: flow.sku, loc: flow.loc, qty: flow.qty, added: new Date().getTime() }, function (err, rec) {
+      if (err) return toast('Could not save — check connection', true);
+      state.q = '';
+      $('q').value = '';
+      $('q-clr').className = 'clr hidden';
+      render();
+      var row = document.querySelector('.row[data-id="' + rec.id + '"]');
+      if (row) {
+        row.className = 'row fresh flash';
+        try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
+      }
+      toast('Added: ' + rec.sku + ' · ' + rec.loc + ' · ' + rec.qty);
+    });
+  }
+
+  /* большое поле ввода: сканер «печатает» и жмёт Enter */
+  function bigInput(label, value, id, onChange) {
+    var box = document.createElement('div');
+    var l = document.createElement('label');
+    l.textContent = label;
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = id;
+    inp.value = value || '';
+    inp.setAttribute('autocomplete', 'off');
+    inp.className = 'mono';
+    inp.addEventListener('input', function () { onChange(inp.value); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.keyCode === 13) {
+        e.preventDefault();
+        var btn = modalEl && modalEl.querySelector('.row2 .go');
+        if (btn) btn.click();
+      }
+    });
+    box.appendChild(l);
+    box.appendChild(inp);
+    return box;
+  }
+
+  /* «−  N  +» и быстрые кнопки */
+  function qtyBox() {
+    var box = document.createElement('div');
+    var val = document.createElement('div');
+    val.id = 'tp-qty-val';
+    val.textContent = '1';
+    val.style.cssText = 'font-size:44px;font-weight:700;text-align:center;margin:10px 0 4px;color:#38bdf8';
+
+    var setv = function (n) {
+      if (n < 1) n = 1;
+      if (n > 9999) n = 9999;
+      val.textContent = String(n);
+    };
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px';
+    var minus = document.createElement('button');
+    minus.type = 'button';
+    minus.textContent = '−';
+    minus.style.cssText = 'flex:1;padding:14px;font-size:22px';
+    minus.addEventListener('click', function () { typed = ''; setv((Number(val.textContent) || 1) - 1); });
+    var plus = document.createElement('button');
+    plus.type = 'button';
+    plus.textContent = '+';
+    plus.style.cssText = 'flex:1;padding:14px;font-size:22px';
+    plus.addEventListener('click', function () { typed = ''; setv((Number(val.textContent) || 1) + 1); });
+
+    /* сканер может «напечатать» число — слушаем клавиши */
+    /* Сканер — это клавиатура: он «печатает» цифры и жмёт Enter.
+       Собираем цифры с паузой: если пауза больше 400 мс — начинаем число заново. */
+    var typed = '', lastKey = 0;
+    var onKey = function (e) {
+      if (!modalEl) return;
+      var k = e.keyCode;
+      var now = new Date().getTime();
+      if (now - lastKey > 400) typed = '';
+      lastKey = now;
+      if (k >= 48 && k <= 57) { typed += String.fromCharCode(k); setv(Number(typed) || 1); e.preventDefault(); }
+      else if (k >= 96 && k <= 105) { typed += String.fromCharCode(k - 48); setv(Number(typed) || 1); e.preventDefault(); }
+      else if (k === 8) { typed = typed.slice(0, -1); setv(Number(typed) || 1); e.preventDefault(); }
+      else if (k === 13) { e.preventDefault(); var btn = modalEl && modalEl.querySelector('.row2 .go'); if (btn) btn.click(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    /* снимаем слушатель, когда диалог закрыт */
+    var unwatch = setInterval(function () {
+      if (!modalEl) { document.removeEventListener('keydown', onKey, true); clearInterval(unwatch); }
+    }, 300);
+
+    var quick = document.createElement('div');
+    quick.style.cssText = 'display:flex;gap:6px;margin-top:8px';
+    [1, 2, 5, 10, 20].forEach(function (n) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = '+' + n;
+      b.style.cssText = 'flex:1;padding:9px 2px;font-size:13px';
+      b.addEventListener('click', function () { typed = ''; setv(n); });
+      quick.appendChild(b);
+    });
+
+    row.appendChild(minus);
+    row.appendChild(plus);
+    box.appendChild(val);
+    box.appendChild(row);
+    box.appendChild(quick);
+    box.appendChild(label2('type a number or use + / −'));
+    return box;
+  }
+  function label2(t) {
+    var d = document.createElement('div');
+    d.style.cssText = 'font-size:12px;color:#6b8296;margin-top:8px;text-align:center';
+    d.textContent = t;
+    return d;
+  }
+
+  /* ==================== scanner listener ==================== */
+  /* Сканер — это клавиатура: быстро «печатает» SKU и жмёт Enter.
+     Ловим только когда не открыт диалог и не заполнен поиск. */
+  function bindScanner() {
+    var buf = '', last = 0;
+    document.addEventListener('keydown', function (e) {
+      if (modalEl) return;                       // диалог сам обрабатывает Enter
+      var t = e.target;
+      var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
+      var k = e.keyCode;
+      if (k === 13) {
+        var code = normSku(buf);
+        buf = '';
+        if (typing) {
+          /* Enter в поиске — просто применяем фильтр */
+          if (t.id === 'q') { state.q = t.value; render(); }
+          return;
+        }
+        if (code.length >= 3) { startScan(code); }
+        return;
+      }
+      if (k < 32 || k > 126) return;             // только печатные символы
+      var now = new Date().getTime();
+      if (now - last > 700) buf = '';            // медленно = человек печатает
+      last = now;
+      buf += String.fromCharCode(k);
+    }, true);
+  }
+
+  /* ==================== login ==================== */
+  function signedIn() {
+    try {
+      return localStorage.getItem(SESS) === sha(ACC.hash + '|tp');
+    } catch (e) { return false; }
+  }
+  function remember() {
+    try { localStorage.setItem(SESS, sha(ACC.hash + '|tp')); } catch (e) {}
+  }
+  function forget() {
+    try { localStorage.removeItem(SESS); } catch (e) {}
+  }
+
+  function show(id) {
+    ['boot', 'login', 'app'].forEach(function (k) {
+      var el = $(k);
+      if (el) el.className = el.className.replace(/\s*hidden/g, '') + (k === id ? '' : ' hidden');
+    });
+    if (id === 'boot') $('boot').className = 'card';
+    if (id === 'login') $('login').className = 'card';
+    if (id === 'app') $('app').className = '';
+  }
+
+  function enterApp() {
+    show('app');
+    loadItems();
+    var q = $('q');
+    if (q && !q._bound) {
+      q._bound = true;
+      q.addEventListener('input', function () {
+        state.q = q.value;
+        $('q-clr').className = q.value ? 'clr' : 'clr hidden';
+        render();
+      });
+      q.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) { q.blur(); }
+      });
+    }
+  }
+
+  function tryLogin() {
+    var pass = $('lg-pass').value;
+    $('lg-err').textContent = '';
+    if (!pass) { $('lg-err').textContent = 'Enter the password'; return; }
+    $('lg-go').disabled = true;
+    var h = sha('tp$' + ACC.salt + '$' + ACC.login.toLowerCase() + '$' + pass);
+    setTimeout(function () {
+      $('lg-go').disabled = false;
+      if (h !== ACC.hash) {
+        $('lg-err').textContent = 'Wrong password';
+        $('lg-pass').value = '';
+        $('lg-pass').focus();
+        return;
+      }
+      remember();
+      $('lg-pass').value = '';
+      enterApp();
+    }, 30);
+  }
+
+  /* ==================== boot ==================== */
+  function boot() {
+    $('who').textContent = '@' + ACC.login;
+    if (signedIn()) { enterApp(); return; }
+    show('login');
+    setTimeout(function () { try { $('lg-pass').focus(); } catch (e) {} }, 120);
+  }
+
+  /* ==================== handlers ==================== */
+  $('lg-go').addEventListener('click', tryLogin);
+  $('lg-pass').addEventListener('keydown', function (e) { if (e.keyCode === 13) tryLogin(); });
+  $('lg-pass').addEventListener('input', function () { $('lg-err').textContent = ''; });
+  $('logout').addEventListener('click', function () {
+    forget();
+    show('login');
+    $('lg-err').textContent = '';
+  });
+  $('btn-create').addEventListener('click', function () {
+    modal({
+      title: 'New parcel',
+      sub: 'Scan or type the SKU',
+      cancelText: 'Cancel',
+      okText: 'Next',
+      okClass: 'go',
+      body: bigInput('SKU', '', 'tp-sku', function () {}),
+      onOk: function (close) {
+        var v = normSku($('tp-sku').value);
+        if (v.length < 3) { $('tp-sku').style.borderColor = '#ef4444'; $('tp-sku').focus(); return; }
+        close();
+        startScan(v);
+      }
+    });
+    setTimeout(function () { var el = $('tp-sku'); if (el) el.focus(); }, 80);
+  });
+  $('btn-scan').addEventListener('click', function () {
+    toast('Ready — scan the parcel now');
+    var buf = '';
+    var h = function (e) { if (e.keyCode === 13 && normSku(buf).length >= 3) { document.removeEventListener('keydown', h, true); startScan(buf); } else if (e.keyCode >= 32) buf += String.fromCharCode(e.keyCode); };
+    document.addEventListener('keydown', h, true);
+  });
+  $('q-clr').addEventListener('click', function () {
+    state.q = '';
+    $('q').value = '';
+    $('q-clr').className = 'clr hidden';
+    render();
+    $('q').focus();
+  });
+
+  bindScanner();
+  boot();
+
+  /* для тестов из консоли */
+  window.TP = {
+    state: state, sha: sha, match: matchItem, norm: norm, render: render,
+    load: loadItems, save: saveItem, remove: removeItem, isOld: isOld,
+    startScan: startScan, boot: boot, enterApp: enterApp, tryLogin: tryLogin,
+    config: { DB: DB, ACC: ACC, OLD_DAYS: OLD_DAYS }
+  };
+})();
+</script>
+</body>
+</html>
