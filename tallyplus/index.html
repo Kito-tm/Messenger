@@ -124,6 +124,10 @@
   .locbox{display:flex;align-items:center;gap:6px;margin:8px 0}
   .locbox input{text-align:center;font-size:22px;padding:12px 6px;letter-spacing:.06em}
   .locsep{font-size:22px;color:#5f7488}
+  .locprefix{
+    flex:none;font-size:22px;font-weight:700;color:#7bd0ff;letter-spacing:.06em;
+    background:#0b1720;border:1px solid #25455b;border-radius:11px;padding:12px 14px
+  }
   .abc{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
   .abc button{padding:12px 0;font-size:16px;font-weight:700;background:#132430;border-color:#25455b;color:#8fd2ff}
   .abc button.on{background:#38bdf8;border-color:#38bdf8;color:#07202d}
@@ -534,8 +538,17 @@
   /* Формат: <4 цифры 9001..9097>-<3 цифры 001..108><A..M>   напр. 9025-042C */
   var loc = { zone: '', num: '', letter: '' };
 
+  /* префикс зоны всегда «90»; пользователь вводит только 2 цифры: 27 -> 9027 */
+  var ZONE_PREFIX = '90';
+
+  /* полный код зоны из двух введённых цифр */
+  function zoneFull(digits) {
+    var d = String(digits || '').replace(/\D/g, '').slice(0, 2);
+    return d.length === 2 ? ZONE_PREFIX + d : '';
+  }
+
   function locValue() {
-    var z = String(loc.zone || '').replace(/\D/g, '').slice(0, 4);
+    var z = zoneFull(loc.zone);
     var n = String(loc.num || '').replace(/\D/g, '').slice(0, 3);
     if (!zoneOk(z) || !numOk(n)) return '';      // неполная или неверная — значения нет
     return z + '-' + n + (loc.letter || '');
@@ -553,23 +566,27 @@
     /* разбираем готовое значение, если открываем «редактировать» */
     var m = /^(\d{4})-(\d{3})([A-M])?$/.exec(String(initialValue || '').trim().toUpperCase());
     loc = { zone: '', num: '', letter: '' };
-    if (m) { loc.zone = m[1]; loc.num = m[2]; loc.letter = m[3] || ''; }
+    if (m) { loc.zone = m[1].slice(-2); loc.num = m[2]; loc.letter = m[3] || ''; }
 
     var box = document.createElement('div');
 
+    /* зона: «90» — фиксированный префикс, рядом ровно 2 цифры */
     var row = document.createElement('div');
     row.className = 'locbox';
+    var prefix = document.createElement('div');
+    prefix.className = 'locprefix';
+    prefix.textContent = ZONE_PREFIX;
     var iZone = document.createElement('input');
     iZone.type = 'text'; iZone.id = 'loc-zone'; iZone.className = 'mono';
-    iZone.setAttribute('inputmode', 'numeric'); iZone.maxLength = 4;
-    iZone.value = loc.zone || '90';
-    iZone.placeholder = '90**';
+    iZone.setAttribute('inputmode', 'numeric'); iZone.maxLength = 2;
+    iZone.value = loc.zone || '';
+    iZone.placeholder = '27';
     var sep1 = document.createElement('span'); sep1.className = 'locsep'; sep1.textContent = '-';
     var iNum = document.createElement('input');
     iNum.type = 'text'; iNum.id = 'loc-num'; iNum.className = 'mono';
     iNum.setAttribute('inputmode', 'numeric'); iNum.maxLength = 3;
     iNum.value = loc.num; iNum.placeholder = '001';
-    row.appendChild(iZone); row.appendChild(sep1); row.appendChild(iNum);
+    row.appendChild(prefix); row.appendChild(iZone); row.appendChild(sep1); row.appendChild(iNum);
     box.appendChild(row);
 
     var abc = document.createElement('div');
@@ -583,17 +600,20 @@
 
     function paint() {
       var v = locValue();
-      var z = String(loc.zone || '');
+      var z = zoneFull(loc.zone);
       var n = String(loc.num || '');
       var bad = '';
-      if (z.length === 4 && !zoneOk(z)) bad = 'zone must be 9001–9097';
-      else if (n.length === 3 && !numOk(n)) bad = 'number must be 001–108';
-      else if (!zoneOk(z)) bad = 'zone 9001–9097';
-      else if (!numOk(n)) bad = 'number 001–108';
+      if (!loc.zone) bad = 'enter 2 digits after 90 · e.g. 27 → 9027';
+      else if (loc.zone.length < 2) bad = 'one more digit';
+      else if (!zoneOk(z)) bad = 'zone ' + z + ' is outside 9001–9097';
+      else if (!n) bad = 'now the number 001–108';
+      else if (n.length < 3) bad = 'number needs 3 digits';
+      else if (!numOk(n)) bad = 'number ' + n + ' is outside 001–108';
       else if (!loc.letter) bad = 'pick a letter A–M (or —)';
       prev.innerHTML = v
         ? esc(v) + '<small>location</small>'
-        : '<span style="color:#ff8a80">' + esc(bad) + '</span><small>' + esc(z || '90**') + ' — ' + esc(n || '***') + '</small>';
+        : '<span style="color:#ff8a80;font-size:15px">' + esc(bad) + '</span><small>' +
+          esc(z || ZONE_PREFIX + '**') + ' — ' + esc(n || '***') + '</small>';
       if (onChange) onChange(v);
       /* буквы показываем только когда есть полный номер */
       abc.innerHTML = '';
@@ -612,26 +632,26 @@
       var nb = document.createElement('button');
       nb.type = 'button';
       nb.textContent = '—';
-      nb.className = 'none' + (loc.letter === '' ? '' : '');
+      nb.className = 'none';
       nb.title = 'No letter';
       nb.addEventListener('click', function () { loc.letter = ''; paint(); });
       abc.appendChild(nb);
     }
 
-    /* зона: 4 цифры, дальше прыжок на номер */
+    /* зона: ровно 2 цифры, потом прыжок на номер */
     iZone.addEventListener('input', function () {
-      var v = iZone.value.replace(/\D/g, '').slice(0, 4);
+      var v = iZone.value.replace(/\D/g, '').slice(0, 2);
       iZone.value = v;
       loc.zone = v;
-      /* 4 цифры, но вне 9001–9097 — сразу подсвечиваем */
-      iZone.style.borderColor = (v.length === 4 && !zoneOk(v)) ? '#ef4444' : '';
-      if (zoneOk(v)) {
+      var full = zoneFull(v);
+      iZone.style.borderColor = (v.length === 2 && !zoneOk(full)) ? '#ef4444' : '';
+      if (v.length === 2 && zoneOk(full)) {
         iZone.style.borderColor = '';
         try { iNum.focus(); } catch (e) {}
       }
       paint();
     });
-    /* номер: 3 цифры, дальше показываем буквы и фокусируем первую */
+    /* номер: 3 цифры, затем показываем буквы */
     iNum.addEventListener('input', function () {
       var v = iNum.value.replace(/\D/g, '').slice(0, 3);
       iNum.value = v;
@@ -648,7 +668,7 @@
       if (e.keyCode !== 13 || !modalEl) return;
       e.preventDefault();
       var btn = modalEl.querySelector('.row2 .go');
-      if (btn && !btn.disabled) btn.click();
+      if (btn) btn.click();
     };
     iZone.addEventListener('keydown', onEnter);
     iNum.addEventListener('keydown', onEnter);
@@ -1146,8 +1166,8 @@
           var why = 'zone 9001–9097, number 001–108, letter A–M';
           var z = String(loc.zone || '').replace(/\D/g, '');
           var n = String(loc.num || '').replace(/\D/g, '');
-          if (z.length < 4) why = 'enter the zone, e.g. 9025';
-          else if (!zoneOk(z)) why = 'zone must be 9001–9097';
+          if (z.length < 2) why = 'enter 2 digits after 90 · e.g. 27';
+          else if (!zoneOk(zoneFull(z))) why = 'zone ' + (ZONE_PREFIX + z) + ' is outside 9001–9097';
           else if (n.length < 3) why = 'enter the number, e.g. 042';
           else if (!numOk(n)) why = 'number must be 001–108';
           else if (!loc.letter) why = 'pick a letter A–M (or —)';
