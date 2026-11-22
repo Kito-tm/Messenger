@@ -164,16 +164,16 @@
 <!-- ---------- create account ---------- -->
 <div id="newacc" class="card hidden">
   <h1>New <span>account</span></h1>
-  <p style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Needs the shared Tally password</p>
+  <p style="color:#8ba0b3;font-size:13px;margin:6px 0 0">Ask the admin for the access key</p>
 
   <label>Name</label>
-  <input id="na-name" type="text" placeholder="Maxym" autocomplete="off">
+  <input id="na-name" type="text" placeholder="" autocomplete="off" autocapitalize="off" spellcheck="false">
 
   <label>Password for this account</label>
   <input id="na-pass" type="password" placeholder="Any password" autocomplete="new-password">
 
-  <label>Tally password (required)</label>
-  <input id="na-master" type="password" placeholder="Tally" autocomplete="off">
+  <label>Access key (required)</label>
+  <input id="na-master" type="password" placeholder="" autocomplete="off">
 
   <button id="na-go" class="big">Create account</button>
   <button id="na-back" class="ghostbtn">← Back to sign in</button>
@@ -250,7 +250,8 @@
 
   /* пароль на создание аккаунта; хранится только хеш */
   var MASTER_SALT = 'tp-master';
-  var MASTER_HASH = '47ec4a56de11bb523276a05c913a67b4c45de5cb23de7e399242a5056ced9020'; // Tally2026
+  /* только хеш: сам пароль в коде не хранится и нигде не выводится */
+  var MASTER_HASH = '47ec4a56de11bb523276a05c913a67b4c45de5cb23de7e399242a5056ced9020';
 
   /* стартовый аккаунт админа; пароль 0506 */
   var SEED = {
@@ -1328,7 +1329,7 @@
     $('na-err').textContent = '';
     if (!/^[A-Za-z0-9_.-]{2,20}$/.test(name)) { $('na-err').textContent = 'Name: letters, digits, . _ - (2–20)'; return; }
     if (!pass || pass.length < 4) { $('na-err').textContent = 'Password: at least 4 characters'; return; }
-    if (sha('tp-master$' + master) !== MASTER_HASH) { $('na-err').textContent = 'Wrong Tally password'; return; }
+    if (sha('tp-master$' + master) !== MASTER_HASH) { $('na-err').textContent = 'Wrong access key'; return; }
     $('na-go').disabled = true;
     xhr('GET', ROOT + '/users/' + name.toLowerCase(), undefined, function (err, exists) {
       $('na-go').disabled = false;
