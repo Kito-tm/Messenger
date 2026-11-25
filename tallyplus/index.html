@@ -117,6 +117,7 @@
   .kv:last-child{border-bottom:0}
   .kv span:first-child{color:#8ba0b3}
   .kv span:last-child{font-weight:600;word-break:break-all;text-align:right}
+  .row .acts .one{color:#7dd3fc;font-size:12px}
   .tabs{display:flex;gap:6px;margin:10px 0 12px}
   .tabs button{flex:1;padding:9px 4px;font-size:14px;background:#16202a;color:#9fb4c7}
   .tabs button.on{background:#38bdf8;border-color:#38bdf8;color:#07202d;font-weight:700}
@@ -253,7 +254,7 @@
   /* только хеш: сам пароль в коде не хранится и нигде не выводится */
   var MASTER_HASH = '25fbb424df342e263c9e07c97d3b80b63d1547156232d0ccc4ab3e19ec9966d6';
 
-  /* стартовый аккаунт админа; пароль 0506 */
+  /* стартовый аккаунт админа (в коде только соль и хеш пароля) */
   var SEED = {
     login: 'Kito', salt: 'tp7f3a91',
     hash: '431452be51ff412a349a30576173cc936cb402f125f86ee13dcd67afa20bcb77'
@@ -381,8 +382,26 @@
     xhr('GET', ROOT, undefined, function (err, data) {
       if (err) { if (cb) cb(err); return; }
       var d = data && typeof data === 'object' ? data : {};
-      state.items = d.items && typeof d.items === 'object' ? d.items : {};
-      state.users = d.users && typeof d.users === 'object' ? d.users : {};
+
+      /* Слияние, а не замена: если сервер ответил неполно (обрыв, частичный
+         ответ), уже загруженные посылки и аккаунты не исчезают из памяти. */
+      var incomingItems = d.items && typeof d.items === 'object' ? d.items : null;
+      var incomingUsers = d.users && typeof d.users === 'object' ? d.users : null;
+
+      /* посылки: если сервер вернул объект — он и есть правда (удалённые уходят),
+         если вернул null (пусто/обрыв) — оставляем то, что уже показано. */
+      if (incomingItems) {
+        state.items = incomingItems;
+      } else if (!state.items) {
+        state.items = {};
+      }
+      /* аккаунты объединяем: так новый аккаунт не потеряется при неполном ответе */
+      if (incomingUsers) {
+        Object.keys(incomingUsers).forEach(function (k) {
+          state.users[k] = incomingUsers[k];
+        });
+      }
+      if (!state.users) state.users = {};
       if (!state.users[SEED.login.toLowerCase()] && !Object.keys(state.users).length) {
         /* первый запуск: создаём админа Kito */
         state.users[SEED.login.toLowerCase()] = {
@@ -535,43 +554,87 @@
     return any && ok;
   }
 
-  /* ==================== location picker ==================== */
-  /* Формат: <4 цифры 9001..9097>-<3 цифры 001..108><A..M>   напр. 9025-042C */
-  var loc = { zone: '', num: '', letter: '' };
-
-  /* префикс зоны всегда «90»; пользователь вводит только 2 цифры: 27 -> 9027 */
+  /* ==================== location picker ====================
+     Два способа ввода:
+       1) Manual  — полностью руками, любая строка (по умолчанию);
+       2) Pattern — шаблон 90** + 001–108 + буква A…M (9025-042C).
+     Оба возвращают одну строку через getValue(), проверка — через why(). */
   var ZONE_PREFIX = '90';
+  var ABC = 'ABCDEFGHIJKLM';
 
-  /* полный код зоны из двух введённых цифр */
   function zoneFull(digits) {
     var d = String(digits || '').replace(/\D/g, '').slice(0, 2);
     return d.length === 2 ? ZONE_PREFIX + d : '';
   }
-
-  function locValue() {
-    var z = zoneFull(loc.zone);
-    var n = String(loc.num || '').replace(/\D/g, '').slice(0, 3);
-    if (!zoneOk(z) || !numOk(n)) return '';      // неполная или неверная — значения нет
-    return z + '-' + n + (loc.letter || '');
-  }
   function zoneOk(z) {
     var n = Number(z);
-    return z.length === 4 && n >= 9001 && n <= 9097;
+    return String(z || '').length === 4 && n >= 9001 && n <= 9097;
   }
   function numOk(n) {
     var v = Number(n);
-    return n.length === 3 && v >= 1 && v <= 108;
+    return String(n || '').length === 3 && v >= 1 && v <= 108;
+  }
+
+  /* нормализация локации для сравнения дублей: без регистра, пробелов и дефисов */
+  function locKey(v) {
+    return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  /* старый глобальный хелпер оставлен для совместимости/тестов */
+  var loc = { zone: '', num: '', letter: '' };
+  function locValue() {
+    var z = zoneFull(loc.zone);
+    var n = String(loc.num || '').replace(/\D/g, '').slice(0, 3);
+    if (!zoneOk(z) || !numOk(n)) return '';
+    return z + '-' + n + (loc.letter || '');
   }
 
   function locPicker(initialValue, onChange) {
-    /* разбираем готовое значение, если открываем «редактировать» */
-    var m = /^(\d{4})-(\d{3})([A-M])?$/.exec(String(initialValue || '').trim().toUpperCase());
-    loc = { zone: '', num: '', letter: '' };
-    if (m) { loc.zone = m[1].slice(-2); loc.num = m[2]; loc.letter = m[3] || ''; }
+    var init = String(initialValue || '').trim();
+    var m = /^(\d{4})-(\d{3})([A-M])?$/.exec(init.toUpperCase());
+
+    var vm = {
+      mode: m ? 'pattern' : 'manual',      /* по умолчанию — ручной ввод */
+      manual: m ? '' : init,
+      zone: m ? m[1].slice(-2) : '',
+      num: m ? m[2] : '',
+      letter: m ? (m[3] || '') : ''
+    };
+    loc = { zone: vm.zone, num: vm.num, letter: vm.letter };
 
     var box = document.createElement('div');
 
-    /* зона: «90» — фиксированный префикс, рядом ровно 2 цифры */
+    /* ---- переключатель режимов ---- */
+    var tabs = document.createElement('div');
+    tabs.className = 'tabs';
+    var bManual = document.createElement('button');
+    bManual.type = 'button';
+    bManual.textContent = 'Manual';
+    var bPat = document.createElement('button');
+    bPat.type = 'button';
+    bPat.textContent = ZONE_PREFIX + '** pattern';
+    tabs.appendChild(bManual);
+    tabs.appendChild(bPat);
+    box.appendChild(tabs);
+
+    /* ---- ручной ввод ---- */
+    var manBox = document.createElement('div');
+    var lMan = document.createElement('label');
+    lMan.textContent = 'Location (type or scan anything)';
+    var iMan = document.createElement('input');
+    iMan.type = 'text';
+    iMan.id = 'loc-manual';
+    iMan.className = 'mono';
+    iMan.setAttribute('autocomplete', 'off');
+    iMan.setAttribute('spellcheck', 'false');
+    iMan.value = vm.manual;
+    iMan.placeholder = 'any location';
+    manBox.appendChild(lMan);
+    manBox.appendChild(iMan);
+    box.appendChild(manBox);
+
+    /* ---- шаблон ---- */
+    var patBox = document.createElement('div');
     var row = document.createElement('div');
     row.className = 'locbox';
     var prefix = document.createElement('div');
@@ -580,52 +643,75 @@
     var iZone = document.createElement('input');
     iZone.type = 'text'; iZone.id = 'loc-zone'; iZone.className = 'mono';
     iZone.setAttribute('inputmode', 'numeric'); iZone.maxLength = 2;
-    iZone.value = loc.zone || '';
+    iZone.value = vm.zone;
     iZone.placeholder = '27';
     var sep1 = document.createElement('span'); sep1.className = 'locsep'; sep1.textContent = '-';
     var iNum = document.createElement('input');
     iNum.type = 'text'; iNum.id = 'loc-num'; iNum.className = 'mono';
     iNum.setAttribute('inputmode', 'numeric'); iNum.maxLength = 3;
-    iNum.value = loc.num; iNum.placeholder = '001';
+    iNum.value = vm.num; iNum.placeholder = '001';
     row.appendChild(prefix); row.appendChild(iZone); row.appendChild(sep1); row.appendChild(iNum);
-    box.appendChild(row);
-
+    patBox.appendChild(row);
     var abc = document.createElement('div');
     abc.className = 'abc';
-    box.appendChild(abc);
+    patBox.appendChild(abc);
+    box.appendChild(patBox);
 
     var prev = document.createElement('div');
     prev.className = 'locprev';
     prev.id = 'loc-prev';
     box.appendChild(prev);
 
+    function patValue() {
+      var z = zoneFull(vm.zone);
+      var n = String(vm.num || '').replace(/\D/g, '').slice(0, 3);
+      if (!zoneOk(z) || !numOk(n)) return '';
+      return z + '-' + n + (vm.letter || '');
+    }
+
+    function patWhy() {
+      var z = zoneFull(vm.zone);
+      var n = String(vm.num || '');
+      if (!vm.zone) return 'enter 2 digits after ' + ZONE_PREFIX + ' · e.g. 27 → 9027';
+      if (vm.zone.length < 2) return 'one more digit';
+      if (!zoneOk(z)) return 'zone ' + z + ' is outside 9001–9097';
+      if (!n) return 'now the number 001–108';
+      if (n.length < 3) return 'number needs 3 digits';
+      if (!numOk(n)) return 'number ' + n + ' is outside 001–108';
+      if (!vm.letter) return 'pick a letter A–M (or —)';
+      return '';
+    }
+
     function paint() {
-      var v = locValue();
-      var z = zoneFull(loc.zone);
-      var n = String(loc.num || '');
-      var bad = '';
-      if (!loc.zone) bad = 'enter 2 digits after 90 · e.g. 27 → 9027';
-      else if (loc.zone.length < 2) bad = 'one more digit';
-      else if (!zoneOk(z)) bad = 'zone ' + z + ' is outside 9001–9097';
-      else if (!n) bad = 'now the number 001–108';
-      else if (n.length < 3) bad = 'number needs 3 digits';
-      else if (!numOk(n)) bad = 'number ' + n + ' is outside 001–108';
-      else if (!loc.letter) bad = 'pick a letter A–M (or —)';
-      prev.innerHTML = v
-        ? esc(v) + '<small>location</small>'
-        : '<span style="color:#ff8a80;font-size:15px">' + esc(bad) + '</span><small>' +
-          esc(z || ZONE_PREFIX + '**') + ' — ' + esc(n || '***') + '</small>';
+      var isMan = vm.mode === 'manual';
+      bManual.className = isMan ? 'on' : '';
+      bPat.className = isMan ? '' : 'on';
+      manBox.style.display = isMan ? '' : 'none';
+      patBox.style.display = isMan ? 'none' : '';
+      abc.style.display = isMan ? 'none' : '';
+
+      var v = isMan ? String(vm.manual || '').trim().toUpperCase() : patValue();
+      var hint = isMan ? '' : patWhy();
+      if (v) {
+        prev.innerHTML = esc(v) + '<small>location</small>';
+      } else {
+        prev.innerHTML = '<span style="color:#ff8a80;font-size:15px">' +
+          esc(isMan ? 'type or scan the location' : hint) + '</span>' +
+          '<small>' + (isMan ? 'manual entry' : esc(zoneFull(vm.zone) || (ZONE_PREFIX + '**')) + ' — ' + esc(vm.num || '***')) + '</small>';
+      }
       if (onChange) onChange(v);
-      /* буквы показываем только когда есть полный номер */
+
+      /* буквы — только в шаблоне и только с валидным номером */
       abc.innerHTML = '';
-      if (!numOk(String(loc.num || ''))) return;
+      if (isMan || !numOk(String(vm.num || ''))) return;
       ABC.split('').forEach(function (ch) {
         var b = document.createElement('button');
         b.type = 'button';
         b.textContent = ch;
-        if (loc.letter === ch) b.className = 'on';
+        if (vm.letter === ch) b.className = 'on';
         b.addEventListener('click', function () {
-          loc.letter = loc.letter === ch ? '' : ch;
+          vm.letter = vm.letter === ch ? '' : ch;
+          loc.letter = vm.letter;
           paint();
         });
         abc.appendChild(b);
@@ -635,14 +721,27 @@
       nb.textContent = '—';
       nb.className = 'none';
       nb.title = 'No letter';
-      nb.addEventListener('click', function () { loc.letter = ''; paint(); });
+      nb.addEventListener('click', function () { vm.letter = ''; loc.letter = ''; paint(); });
       abc.appendChild(nb);
     }
 
-    /* зона: ровно 2 цифры, потом прыжок на номер */
+    bManual.addEventListener('click', function () {
+      vm.mode = 'manual';
+      paint();
+      try { iMan.focus(); } catch (e) {}
+    });
+    bPat.addEventListener('click', function () {
+      vm.mode = 'pattern';
+      paint();
+      try { iZone.focus(); } catch (e) {}
+    });
+
+    iMan.addEventListener('input', function () { vm.manual = iMan.value; paint(); });
+
     iZone.addEventListener('input', function () {
       var v = iZone.value.replace(/\D/g, '').slice(0, 2);
       iZone.value = v;
+      vm.zone = v;
       loc.zone = v;
       var full = zoneFull(v);
       iZone.style.borderColor = (v.length === 2 && !zoneOk(full)) ? '#ef4444' : '';
@@ -652,10 +751,10 @@
       }
       paint();
     });
-    /* номер: 3 цифры, затем показываем буквы */
     iNum.addEventListener('input', function () {
       var v = iNum.value.replace(/\D/g, '').slice(0, 3);
       iNum.value = v;
+      vm.num = v;
       loc.num = v;
       iNum.style.borderColor = (v.length === 3 && !numOk(v)) ? '#ef4444' : '';
       paint();
@@ -664,6 +763,7 @@
         if (first) { try { first.focus(); } catch (e) {} }
       }
     });
+
     /* Enter в любом поле — подтвердить */
     var onEnter = function (e) {
       if (e.keyCode !== 13 || !modalEl) return;
@@ -671,11 +771,29 @@
       var btn = modalEl.querySelector('.row2 .go');
       if (btn) btn.click();
     };
+    iMan.addEventListener('keydown', onEnter);
     iZone.addEventListener('keydown', onEnter);
     iNum.addEventListener('keydown', onEnter);
 
     paint();
-    return box;
+
+    return {
+      el: box,
+      getValue: function () {
+        return vm.mode === 'manual'
+          ? String(vm.manual || '').trim().toUpperCase()
+          : patValue();
+      },
+      why: function () {
+        if (vm.mode === 'manual') {
+          return String(vm.manual || '').trim() ? '' : 'type or scan the location';
+        }
+        return patWhy();
+      },
+      focus: function () {
+        try { (vm.mode === 'manual' ? iMan : iZone).focus(); } catch (e) {}
+      }
+    };
   }
 
   /* ==================== render ==================== */
@@ -790,7 +908,14 @@
         del.className = 'del';
         del.textContent = '✕';
         del.addEventListener('click', function (e) { e.stopPropagation(); askDelete(it); });
+        var one = document.createElement('button');
+        one.type = 'button';
+        one.className = 'one';
+        one.textContent = '+1';
+        one.title = 'Add one more box to this parcel';
+        one.addEventListener('click', function (e) { e.stopPropagation(); askPlusOne(it); });
         acts.appendChild(chk);
+        acts.appendChild(one);
         acts.appendChild(edit);
         acts.appendChild(del);
       } else {
@@ -896,29 +1021,83 @@
 
   function editItem(it) {
     if (!canEdit(it)) return toast('You can only change your own parcels', 'bad');
+
+    var picker = locPicker(it.loc || '', function () {});
+    var body = document.createElement('div');
+
+    var lLoc = document.createElement('label');
+    lLoc.textContent = 'Location';
+    body.appendChild(lLoc);
+    body.appendChild(picker.el);
+
+    var lQty = document.createElement('label');
+    lQty.textContent = 'Quantity';
+    lQty.style.marginTop = '8px';
+    body.appendChild(lQty);
+    body.appendChild(qtyBox(Number(it.qty) || 1));
+
     modal({
       title: 'Edit parcel',
       sub: it.sku + ' · by ' + (it.by || '?'),
       cancelText: 'Cancel',
       okText: 'Save',
       okClass: 'go',
-      body: editBox(it, true),
+      body: body,
       onOk: function (close) {
         var n = Math.round(Number($('tp-qty-val').textContent) || 0);
         if (n < 1) { toast('Quantity must be at least 1', 'bad'); return; }
-        var newLoc = String($('ed-loc').value || '').trim().toUpperCase();
-        if (!/^\d{4}-\d{3}[A-M]?$/.test(newLoc)) { toast('Location must look like 9025-042C', 'bad'); return; }
-        saveItem({
-          id: it.id, sku: it.sku, loc: newLoc, qty: n, by: it.by,
-          added: it.added, checked: it.checked || 0
-        }, function (err) {
-          close();
-          if (err) return toast('Could not save — check connection', 'bad');
-          render();
-          var row = document.querySelector('.row[data-id="' + it.id + '"]');
-          if (row) row.className = 'row ' + (isOld(it) ? 'old' : 'fresh') + ' flash';
-          toast('Saved', 'good');
-        });
+        var newLoc = picker.getValue();
+        if (!newLoc) { toast(picker.why() || 'enter the location', 'bad'); picker.focus(); return; }
+
+        var commit = function (qs) {
+          saveItem({
+            id: it.id, sku: it.sku, loc: newLoc, qty: qs, by: it.by,
+            added: it.added, checked: it.checked || 0
+          }, function (err) {
+            close();
+            if (err) return toast('Could not save — check connection', 'bad');
+            render();
+            var row = document.querySelector('.row[data-id="' + it.id + '"]');
+            if (row) row.className = 'row ' + (isOld(it) ? 'old' : 'fresh') + ' flash';
+            toast('Saved', 'good');
+          });
+        };
+
+        close();
+        /* если после смены локации такая пара уже есть — предупреждаем */
+        var same = findSame(it.sku, newLoc);
+        if (same && same.id !== it.id) {
+          modal({
+            title: 'Same SKU on this location',
+            sub: 'You already have ' + it.sku + ' on ' + same.loc,
+            lines: [
+              ['Existing', (Number(same.qty) || 0) + ' box(es) by ' + (same.by || '?')],
+              ['This edit', n + ' box(es)']
+            ],
+            cancelText: 'Cancel',
+            okText: canEdit(same) ? 'Merge (+' + n + ')' : 'Save anyway',
+            okClass: 'go',
+            onOk: function (close2) {
+              close2();
+              if (canEdit(same)) {
+                saveItem({
+                  id: same.id, sku: same.sku, loc: same.loc,
+                  qty: (Number(same.qty) || 0) + n, by: same.by,
+                  added: same.added, checked: same.checked || 0
+                }, function () {
+                  removeItem(it.id, function () {
+                    render();
+                    toast('Merged into ' + same.loc, 'good');
+                  });
+                });
+              } else {
+                commit(n);
+              }
+            }
+          });
+          return;
+        }
+        commit(n);
       }
     });
   }
@@ -1118,28 +1297,6 @@
     return box;
   }
 
-  /* количество + поле локации для правки */
-  function editBox(it, withLoc) {
-    var box = document.createElement('div');
-    if (withLoc) {
-      var l = document.createElement('label');
-      l.textContent = 'Location';
-      var inp = document.createElement('input');
-      inp.type = 'text';
-      inp.id = 'ed-loc';
-      inp.className = 'mono';
-      inp.value = it.loc || '';
-      inp.setAttribute('autocomplete', 'off');
-      box.appendChild(l);
-      box.appendChild(inp);
-      var l2 = document.createElement('label');
-      l2.textContent = 'Quantity';
-      box.appendChild(l2);
-    }
-    box.appendChild(qtyBox(Number(it.qty) || 1));
-    return box;
-  }
-
   /* ==================== flow: SKU -> location -> qty ==================== */
   var flow = { sku: '', loc: '', qty: 1 };
 
@@ -1152,32 +1309,106 @@
     stepLocation();
   }
 
+  /* ищем такую же пару SKU + локация (свою или чужую — правило одинаковое) */
+  function findSame(sku, location) {
+    var a = normSku(sku), b = locKey(location);
+    var found = null;
+    Object.keys(state.items).forEach(function (id) {
+      var it = state.items[id];
+      if (!it || !it.sku) return;
+      if (normSku(it.sku) === a && locKey(it.loc) === b) found = it;
+    });
+    return found;
+  }
+
+  /* «+1» прямо из строки списка — тот же смысл, что и в диалоге дубля */
+  function askPlusOne(it) {
+    if (!canEdit(it)) return toast('You can only change your own parcels', 'bad');
+    modal({
+      title: 'Add one box?',
+      sub: it.sku + ' · ' + (it.loc || '—'),
+      lines: [
+        ['Now', (Number(it.qty) || 0) + ' box(es)'],
+        ['After', ((Number(it.qty) || 0) + 1) + ' box(es)']
+      ],
+      cancelText: 'Cancel',
+      okText: '+1',
+      okClass: 'go',
+      onOk: function (close) {
+        var nextQty = (Number(it.qty) || 0) + 1;
+        saveItem({
+          id: it.id, sku: it.sku, loc: it.loc, qty: nextQty,
+          by: it.by, added: it.added, checked: it.checked || 0
+        }, function (err) {
+          close();
+          if (err) return toast('Could not save — check connection', 'bad');
+          render();
+          var row = document.querySelector('.row[data-id="' + it.id + '"]');
+          if (row) row.className = 'row ' + (isOld(it) ? 'old' : 'fresh') + ' flash';
+          toast('Now ' + nextQty + ' box(es)', 'good');
+        });
+      }
+    });
+  }
+
   function stepLocation() {
-    var picker = locPicker('', function (v) { flow.loc = v; });
+    var picker = locPicker('', function () {});
     modal({
       title: 'Scan the location',
-      sub: 'Parcel ' + flow.sku + ' · zone 9001–9097',
+      sub: 'Parcel ' + flow.sku + ' · Manual or 90** pattern',
       cancelText: 'Cancel',
       okText: 'Next',
       okClass: 'go',
-      body: picker,
+      body: picker.el,
       onOk: function (close) {
-        var v = locValue();
-        if (!/^\d{4}-\d{3}[A-M]$/.test(v)) {
-          var why = 'zone 9001–9097, number 001–108, letter A–M';
-          var z = String(loc.zone || '').replace(/\D/g, '');
-          var n = String(loc.num || '').replace(/\D/g, '');
-          if (z.length < 2) why = 'enter 2 digits after 90 · e.g. 27';
-          else if (!zoneOk(zoneFull(z))) why = 'zone ' + (ZONE_PREFIX + z) + ' is outside 9001–9097';
-          else if (n.length < 3) why = 'enter the number, e.g. 042';
-          else if (!numOk(n)) why = 'number must be 001–108';
-          else if (!loc.letter) why = 'pick a letter A–M (or —)';
-          toast(why, 'bad');
-          return;
-        }
+        var v = picker.getValue();
+        if (!v) { toast(picker.why() || 'enter the location', 'bad'); picker.focus(); return; }
         flow.loc = v;
         close();
+        /* та же локация + тот же SKU уже есть — спрашиваем, а не плодим блоки */
+        var same = findSame(flow.sku, v);
+        if (same) return askDuplicate(same);
         stepQty();
+      }
+    });
+    setTimeout(function () { picker.focus(); }, 90);
+  }
+
+  /* «вы уже вводили это» → +1 коробка в существующий блок */
+  function askDuplicate(same) {
+    var mine = canEdit(same);
+    var lines = [
+      ['SKU', same.sku],
+      ['Location', same.loc],
+      ['Already there', (Number(same.qty) || 0) + ' box(es)'],
+      ['Added by', same.by || '?']
+    ];
+    if (!mine) lines.push(['Rights', 'only ' + (same.by || '?') + ' can change it']);
+
+    modal({
+      title: 'Already in the list',
+      sub: 'This SKU is already on ' + same.loc,
+      lines: lines,
+      cancelText: 'Cancel',
+      okText: mine ? 'Yes, +1 box' : 'Close',
+      okClass: 'go',
+      onOk: function (close) {
+        if (!mine) { close(); return; }
+        var nextQty = (Number(same.qty) || 0) + 1;
+        saveItem({
+          id: same.id, sku: same.sku, loc: same.loc, qty: nextQty,
+          by: same.by, added: same.added, checked: same.checked || 0
+        }, function (err) {
+          close();
+          if (err) return toast('Could not save — check connection', 'bad');
+          render();
+          var row = document.querySelector('.row[data-id="' + same.id + '"]');
+          if (row) {
+            row.className = 'row ' + (isOld(same) ? 'old' : 'fresh') + ' flash';
+            try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
+          }
+          toast('+1 box → ' + same.loc + ' (now ' + nextQty + ')', 'good');
+        });
       }
     });
   }
@@ -1440,16 +1671,10 @@
     setTimeout(function () { var el = $('tp-sku'); if (el) el.focus(); }, 80);
   });
 
+  /* кнопка только подсказывает: сами штрих-коды ловит глобальный bindScanner(),
+     иначе на одно сканирование открывалось бы два окна подряд */
   $('btn-scan').addEventListener('click', function () {
     toast('Ready — scan the parcel now');
-    var buf = '';
-    var h = function (e) {
-      if (e.keyCode === 13 && normSku(buf).length >= 3) {
-        document.removeEventListener('keydown', h, true);
-        startScan(buf);
-      } else if (e.keyCode >= 32) buf += String.fromCharCode(e.keyCode);
-    };
-    document.addEventListener('keydown', h, true);
   });
 
   $('q-clr').addEventListener('click', function () {
