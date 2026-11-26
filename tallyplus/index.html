@@ -141,6 +141,16 @@
   .abc button.none{background:#241a1a;border-color:#4a2b2b;color:#ff9d95}
   .locprev{font-size:20px;font-weight:700;text-align:center;color:#38bdf8;margin:6px 0 0;letter-spacing:.04em}
   .locprev small{display:block;font-size:11px;color:#6b8296;letter-spacing:0;font-weight:400}
+  /* ---------- режимы ввода локации ---------- */
+  .modebox{background:#111c25;border:1px solid #20303d;border-radius:10px;padding:8px 9px 9px;margin:0 0 8px}
+  .modehead{font-size:12px;color:#7f97aa;margin-bottom:6px;letter-spacing:0}
+  .modehead b{display:inline-block;background:#38bdf8;color:#07202d;font-size:10px;
+    padding:1px 6px;border-radius:20px;margin-left:5px;vertical-align:1px}
+  .modehead small{display:block;font-size:11px;color:#5f7488;margin-top:2px}
+  .big-input{font-size:19px;padding:13px 11px;letter-spacing:.5px}
+  .patbtn{width:100%;text-align:left;padding:12px 11px;margin:0 0 8px;font-size:14px;line-height:1.3}
+  .patbtn small{display:block;font-size:11px;color:#6b8296;margin-top:3px;font-weight:400}
+  .patbtn.on{background:#152734;border-color:#38bdf8;color:#cfeeff}
   /* ---------- toast ---------- */
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);max-width:calc(100% - 24px);background:#22303c;border:1px solid #33475b;color:#e8eef4;padding:11px 15px;border-radius:11px;font-size:14px;z-index:90;box-shadow:0 6px 22px rgba(0,0,0,.45);text-align:center}
   .toast.bad{background:#2a1c1c;border-color:#5a3333;color:#ffc9c4}
@@ -166,7 +176,7 @@
   <button id="lg-go" class="big">Sign in</button>
   <button id="lg-new" class="ghostbtn">＋ Create a new account</button>
   <div id="lg-err" class="err"></div>
-  <div id="build" style="font-size:11px;color:#4b5f70;text-align:center;margin-top:10px">build 13 · manual location</div>
+  <div id="build" style="font-size:11px;color:#4b5f70;text-align:center;margin-top:10px">build 14 · manual location on top</div>
 </div>
 
 <!-- ---------- create account ---------- -->
@@ -618,37 +628,39 @@
 
     var box = document.createElement('div');
 
-    /* ---- переключатель режимов: ручной — первый и основной ---- */
-    var tabs = document.createElement('div');
-    tabs.className = 'tabs';
-    var bManual = document.createElement('button');
-    bManual.type = 'button';
-    bManual.innerHTML = 'Manual <small>main</small>';
-    var bPat = document.createElement('button');
-    bPat.type = 'button';
-    bPat.textContent = ZONE_PREFIX + '** pattern';
-    tabs.appendChild(bManual);
-    tabs.appendChild(bPat);
-    box.appendChild(tabs);
-
-    /* ---- ручной ввод ---- */
+    /* ================= 1. РУЧНОЙ ВВОД — основной, всегда сверху ================= */
     var manBox = document.createElement('div');
-    var lMan = document.createElement('label');
-    lMan.textContent = 'Location (type or scan anything)';
+    manBox.className = 'modebox';
+    var manHead = document.createElement('div');
+    manHead.className = 'modehead';
+    manHead.innerHTML = '1 · Type the location yourself <b>main</b>';
+    manBox.appendChild(manHead);
+
     var iMan = document.createElement('input');
     iMan.type = 'text';
     iMan.id = 'loc-manual';
-    iMan.className = 'mono';
+    iMan.className = 'mono big-input';
     iMan.setAttribute('autocomplete', 'off');
     iMan.setAttribute('spellcheck', 'false');
+    iMan.setAttribute('autocapitalize', 'characters');
     iMan.value = vm.manual;
-    iMan.placeholder = 'any location';
-    manBox.appendChild(lMan);
+    iMan.placeholder = 'type or scan: RACK-42, door 7 …';
     manBox.appendChild(iMan);
     box.appendChild(manBox);
 
-    /* ---- шаблон ---- */
+    /* кнопка раскрытия шаблона — визуально второй шаг */
+    var bPat = document.createElement('button');
+    bPat.type = 'button';
+    bPat.className = 'patbtn';
+    box.appendChild(bPat);
+
+    /* ================= 2. ШАБЛОН 90** — по кнопке ================= */
     var patBox = document.createElement('div');
+    patBox.className = 'modebox';
+    var patHead = document.createElement('div');
+    patHead.className = 'modehead';
+    patHead.innerHTML = '2 · ' + ZONE_PREFIX + '** pattern <small>e.g. 9025-042C</small>';
+    patBox.appendChild(patHead);
     var row = document.createElement('div');
     row.className = 'locbox';
     var prefix = document.createElement('div');
@@ -698,11 +710,12 @@
 
     function paint() {
       var isMan = vm.mode === 'manual';
-      bManual.className = isMan ? 'on' : '';
-      bPat.className = isMan ? '' : 'on';
-      manBox.style.display = isMan ? '' : 'none';
       patBox.style.display = isMan ? 'none' : '';
       abc.style.display = isMan ? 'none' : '';
+      bPat.className = 'patbtn' + (isMan ? '' : ' on');
+      bPat.innerHTML = isMan
+        ? 'Use the ' + ZONE_PREFIX + '** pattern instead <small>9001–9097 · 001–108 · A–M</small>'
+        : '← Back to typing the location yourself';
 
       var v = isMan ? cleanLoc(vm.manual) : patValue();
       var hint = isMan ? '' : patWhy();
@@ -739,15 +752,10 @@
       abc.appendChild(nb);
     }
 
-    bManual.addEventListener('click', function () {
-      vm.mode = 'manual';
-      paint();
-      try { iMan.focus(); } catch (e) {}
-    });
     bPat.addEventListener('click', function () {
-      vm.mode = 'pattern';
+      vm.mode = vm.mode === 'manual' ? 'pattern' : 'manual';
       paint();
-      try { iZone.focus(); } catch (e) {}
+      try { (vm.mode === 'manual' ? iMan : iZone).focus(); } catch (e) {}
     });
 
     iMan.addEventListener('input', function () { vm.manual = iMan.value; paint(); });
@@ -1376,7 +1384,7 @@
     var picker = locPicker('', function () {});
     modal({
       title: 'Scan the location',
-      sub: 'Parcel ' + flow.sku + ' · Manual or 90** pattern',
+      sub: 'Parcel ' + flow.sku + ' · type it, or use the 90** pattern',
       cancelText: 'Cancel',
       okText: 'Next',
       okClass: 'go',
@@ -1392,7 +1400,7 @@
         stepQty();
       }
     });
-    setTimeout(function () { picker.focus(); }, 90);
+    setTimeout(function () { picker.focus(); }, 120);
   }
 
   /* «вы уже вводили это» → +1 коробка в существующий блок */
