@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f1a24">
 <meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<base target="_top">
+<link rel="icon" href="data:,">
+<link rel="manifest" href="data:,">
 <title>TallyPlus</title>
 <!--
   TallyPlus — parcel tracking for warehouse work.
@@ -575,6 +581,13 @@
     return String(n || '').length === 3 && v >= 1 && v <= 108;
   }
 
+  /* чистим локацию от фигурных скобок и лишних пробелов — остальное оставляем как есть */
+  function cleanLoc(v) {
+    var out = String(v || '').replace(/[{}]/g, '');
+    out = out.replace(/\s+/g, ' ').trim();
+    return out.toUpperCase();
+  }
+
   /* нормализация локации для сравнения дублей: без регистра, пробелов и дефисов */
   function locKey(v) {
     return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -604,12 +617,12 @@
 
     var box = document.createElement('div');
 
-    /* ---- переключатель режимов ---- */
+    /* ---- переключатель режимов: ручной — первый и основной ---- */
     var tabs = document.createElement('div');
     tabs.className = 'tabs';
     var bManual = document.createElement('button');
     bManual.type = 'button';
-    bManual.textContent = 'Manual';
+    bManual.innerHTML = 'Manual <small>main</small>';
     var bPat = document.createElement('button');
     bPat.type = 'button';
     bPat.textContent = ZONE_PREFIX + '** pattern';
@@ -690,7 +703,7 @@
       patBox.style.display = isMan ? 'none' : '';
       abc.style.display = isMan ? 'none' : '';
 
-      var v = isMan ? String(vm.manual || '').trim().toUpperCase() : patValue();
+      var v = isMan ? cleanLoc(vm.manual) : patValue();
       var hint = isMan ? '' : patWhy();
       if (v) {
         prev.innerHTML = esc(v) + '<small>location</small>';
@@ -780,9 +793,7 @@
     return {
       el: box,
       getValue: function () {
-        return vm.mode === 'manual'
-          ? String(vm.manual || '').trim().toUpperCase()
-          : patValue();
+        return vm.mode === 'manual' ? cleanLoc(vm.manual) : patValue();
       },
       why: function () {
         if (vm.mode === 'manual') {
@@ -1300,7 +1311,16 @@
   /* ==================== flow: SKU -> location -> qty ==================== */
   var flow = { sku: '', loc: '', qty: 1 };
 
-  function normSku(v) { return String(v || '').replace(/\s+/g, '').toUpperCase(); }
+  /* SKU: убираем фигурные и прочие скобки, пробелы и мусор — остаются буквы, цифры, - и _ */
+  function normSku(v) {
+    var out = String(v || '').toUpperCase();
+    try { out = out.replace(/[{}()\[\]<>«»"']/g, ''); } catch (e) { out = out.replace(/[{}]/g, ''); }
+    out = out.replace(/^\{+|\}+$/g, '');          /* скобки по краям, если остались */
+    out = out.replace(/[^A-Z0-9\u0400-\u04FF._-]/g, '');  /* всё лишнее, включая пробелы */
+    return out;
+  }
+  /* то же самое для показа на экране и сравнения дублей */
+  function skuText(v) { return normSku(v); }
 
   function startScan(sku) {
     flow = { sku: normSku(sku), loc: '', qty: 1 };
